@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm /c/Users/digen/Desktop/WeddingApp/Wedding/src/App.css)",
+      "Bash(rm /c/Users/digen/Desktop/WeddingApp/Wedding/src/assets/react.svg /c/Users/digen/Desktop/WeddingApp/Wedding/src/assets/vite.svg /c/Users/digen/Desktop/WeddingApp/Wedding/src/assets/hero.png)",
+      "Bash(npm run *)"
+    ]
+  }
+}
