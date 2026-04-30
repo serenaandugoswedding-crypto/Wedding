@@ -122,7 +122,7 @@ export default async function handler(req, res) {
   }
 
   // ── Update guest counters ────────────────────────────────────
-  await supabase.rpc('increment_guest_photos', { p_uuid: guest_uuid }).catch(() => {});
+  await Promise.resolve(supabase.rpc('increment_guest_photos', { p_uuid: guest_uuid })).catch(() => {});
 
   return res.status(200).json({
     photo_id:  photo.id,
