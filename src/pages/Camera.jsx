@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FILTERS, applyFilterToCanvas, canvasToBase64, renderThumbnail } from '../lib/filters';
+import { FILTERS, applyFilterToCanvas, canvasToBase64, resizeCanvasToMaxDimension, renderThumbnail } from '../lib/filters';
 import { useGuestIdentity } from '../hooks/useGuestIdentity';
 import { useUploadQueue } from '../hooks/useUploadQueue';
 
@@ -95,8 +95,17 @@ export default function Camera() {
   async function handlePublish() {
     if (!uuid) { setError('Torna alla cover e inserisci il tuo nome.'); return; }
     setPhase(PHASE.UPLOADING);
+
+    // Rigenera il canvas filtrato dall'immagine originale catturata.
+    // Produce due versioni: archive full-res (per backup Drive) e web 1600px (per gallery).
+    const filteredCanvas = applyFilterToCanvas(capturedImg.current, selectedFilter);
+    const photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
+    const webCanvas            = resizeCanvasToMaxDimension(filteredCanvas, 1600);
+    const photo_web_base64     = canvasToBase64(webCanvas, 0.82);
+
     const result = await uploadOrQueue({
-      photo_base64: filteredSrc,
+      photo_web_base64,
+      photo_archive_base64,
       guest_uuid:   uuid,
       filter_used:  selectedFilter.id,
       dedication:   dedication.trim() || null,

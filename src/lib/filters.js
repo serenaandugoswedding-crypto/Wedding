@@ -92,6 +92,19 @@ export function canvasToBase64(canvas, quality = 0.92) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
+// Ridimensiona un canvas a maxDim px sul lato lungo, mantenendo le proporzioni.
+// Se il canvas è già dentro il limite, restituisce il canvas originale senza copiare.
+export function resizeCanvasToMaxDimension(canvas, maxDim) {
+  const { width, height } = canvas;
+  if (width <= maxDim && height <= maxDim) return canvas;
+  const scale  = maxDim / Math.max(width, height);
+  const out    = document.createElement('canvas');
+  out.width    = Math.round(width  * scale);
+  out.height   = Math.round(height * scale);
+  out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
+  return out;
+}
+
 // Render a 60×60 thumbnail preview of a filter onto an existing <img>
 export function renderThumbnail(imageElement, filter, size = 60) {
   const canvas  = document.createElement('canvas');
