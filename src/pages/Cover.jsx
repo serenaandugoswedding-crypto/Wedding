@@ -75,14 +75,14 @@ export default function Cover() {
     navigate('/home');
   }
 
-  function handleNameSubmit(e) {
+  async function handleNameSubmit(e) {
     e.preventDefault();
     const trimmed = inputName.trim();
     if (!trimmed) {
       setError('Inserisci il tuo nome per continuare.');
       return;
     }
-    identify(trimmed);
+    await identify(trimmed);
     navigate('/home');
   }
 
