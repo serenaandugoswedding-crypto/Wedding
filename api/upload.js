@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Could not process image' });
   }
 
-  // ── Upload full photo to Drive ───────────────────────────────
+  // ── Upload full photo and thumbnail to Supabase Storage ─────
   const timestamp = Date.now();
   const photoFilename = `${timestamp}_${guest_uuid.slice(0, 8)}.jpg`;
   const thumbFilename = `thumb_${photoFilename}`;
@@ -89,8 +89,8 @@ export default async function handler(req, res) {
       uploadToDrive({ buffer: thumbnailBuffer, filename: thumbFilename, mimeType: 'image/jpeg' }),
     ]);
   } catch (err) {
-    console.error('[upload] Drive upload error:', err.message, err.stack);
-    return res.status(502).json({ error: 'Drive upload failed', detail: err.message });
+    console.error('[upload] Storage upload error:', err.message, err.stack);
+    return res.status(502).json({ error: 'Storage upload failed', detail: err.message });
   }
 
   // ── Random polaroid position ─────────────────────────────────
