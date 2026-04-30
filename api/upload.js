@@ -89,8 +89,8 @@ export default async function handler(req, res) {
       uploadToDrive({ buffer: thumbnailBuffer, filename: thumbFilename, mimeType: 'image/jpeg' }),
     ]);
   } catch (err) {
-    console.error('Drive upload error:', err);
-    return res.status(502).json({ error: 'Drive upload failed' });
+    console.error('[upload] Drive upload error:', err.message, err.stack);
+    return res.status(502).json({ error: 'Drive upload failed', detail: err.message });
   }
 
   // ── Random polaroid position ─────────────────────────────────
