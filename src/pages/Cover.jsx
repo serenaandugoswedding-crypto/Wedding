@@ -82,8 +82,13 @@ export default function Cover() {
       setError('Inserisci il tuo nome per continuare.');
       return;
     }
-    await identify(trimmed);
-    navigate('/home');
+    try {
+      await identify(trimmed);
+      navigate('/home');
+    } catch (err) {
+      console.error('[Cover] identify error:', err.message);
+      setError(`Errore di registrazione: ${err.message}`);
+    }
   }
 
   const ugoDelay = SERENA.length * STAGGER_MS + 300;

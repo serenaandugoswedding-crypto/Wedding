@@ -8,22 +8,25 @@ function generateUUID() {
 }
 
 async function registerGuest(uuid, display_name) {
+  console.log('[registerGuest] calling /api/guests', { uuid, display_name });
   const resp = await fetch('/api/guests', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uuid, display_name }),
   });
+  const body = await resp.json().catch(() => ({}));
+  console.log('[registerGuest] response', resp.status, body);
   if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(body.error || `guests API ${resp.status}`);
+    throw new Error(body.error || body.detail || `guests API ${resp.status}`);
   }
-  return resp.json();
+  return body;
 }
 
 export function useGuestIdentity() {
   const [uuid, setUuid] = useState(() => localStorage.getItem('wedding_guest_uuid') || '');
   const [name, setName] = useState(() => localStorage.getItem('wedding_guest_name') || '');
   const [registered, setRegistered] = useState(false);
+  const [registerError, setRegisterError] = useState('');
 
   const isIdentified = Boolean(uuid && name);
 
@@ -34,11 +37,14 @@ export function useGuestIdentity() {
     if (storedUuid && storedName) {
       registerGuest(storedUuid, storedName)
         .then(() => setRegistered(true))
-        .catch((err) => console.warn('[useGuestIdentity] re-register failed:', err));
+        .catch((err) => {
+          console.error('[useGuestIdentity] re-register failed:', err.message);
+          setRegisterError(err.message);
+        });
     }
   }, []);
 
-  // Returns a promise so callers can await DB confirmation before navigating
+  // Throws on DB failure so Cover.jsx can show the error
   async function identify(displayName) {
     const id = uuid || generateUUID();
     const trimmed = displayName.trim();
@@ -46,14 +52,10 @@ export function useGuestIdentity() {
     localStorage.setItem('wedding_guest_name', trimmed);
     setUuid(id);
     setName(trimmed);
-    try {
-      await registerGuest(id, trimmed);
-      setRegistered(true);
-    } catch (err) {
-      console.error('[useGuestIdentity] identify failed:', err);
-      // Don't throw — guest UUID is in localStorage, upload will surface DB error if needed
-    }
+    setRegisterError('');
+    await registerGuest(id, trimmed); // throws if API fails
+    setRegistered(true);
   }
 
-  return { uuid, name, isIdentified, registered, identify };
+  return { uuid, name, isIdentified, registered, registerError, identify };
 }
