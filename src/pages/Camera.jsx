@@ -105,7 +105,7 @@ export default function Camera() {
     if (result.ok || result.queued) {
       setPhase(PHASE.DONE);
     } else {
-      setError('Qualcosa è andato storto. Riprova.');
+      setError(result.error ? `Errore: ${result.error}` : 'Qualcosa è andato storto. Riprova.');
       setPhase(PHASE.PREVIEW);
     }
   }

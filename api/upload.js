@@ -17,13 +17,25 @@ export default async function handler(req, res) {
   const { photo_base64, guest_uuid, dedication, mission_id, filter_used } = req.body ?? {};
 
   // ── Validate inputs ──────────────────────────────────────────
+  console.log('[upload] body keys received:', {
+    has_photo_base64: typeof photo_base64 === 'string' && photo_base64.length > 0,
+    photo_base64_len: typeof photo_base64 === 'string' ? photo_base64.length : null,
+    guest_uuid,
+    filter_used,
+    has_dedication: !!dedication,
+    has_mission_id: !!mission_id,
+  });
+
   if (!photo_base64 || typeof photo_base64 !== 'string') {
+    console.error('[upload] 400: photo_base64 missing or empty');
     return res.status(400).json({ error: 'photo_base64 required' });
   }
   if (!guest_uuid || typeof guest_uuid !== 'string') {
+    console.error('[upload] 400: guest_uuid missing');
     return res.status(400).json({ error: 'guest_uuid required' });
   }
   if (photo_base64.length > MAX_B64_BYTES) {
+    console.error('[upload] 400: photo too large', photo_base64.length);
     return res.status(400).json({ error: 'Photo too large (max 8MB)' });
   }
 
@@ -35,7 +47,10 @@ export default async function handler(req, res) {
 
   // Validate MIME type via magic bytes
   const mime = detectMime(imageBuffer);
-  if (!mime) return res.status(400).json({ error: 'Invalid image format' });
+  if (!mime) {
+    console.error('[upload] 400: invalid image format, first bytes:', imageBuffer.slice(0, 8).toString('hex'));
+    return res.status(400).json({ error: 'Invalid image format' });
+  }
 
   const supabase = getSupabaseAdmin();
 
@@ -47,7 +62,8 @@ export default async function handler(req, res) {
     .maybeSingle();
 
   if (guestErr || !guest) {
-    return res.status(400).json({ error: 'Unknown guest' });
+    console.error('[upload] 400: unknown guest', { guest_uuid, guestErr });
+    return res.status(400).json({ error: 'Unknown guest', guest_uuid });
   }
 
   // ── Generate thumbnail (600px) ───────────────────────────────

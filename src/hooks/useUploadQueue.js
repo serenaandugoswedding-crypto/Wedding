@@ -84,13 +84,24 @@ export function useUploadQueue() {
 
   async function uploadOrQueue(payload) {
     if (navigator.onLine) {
-      const resp = await fetch('/api/upload', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
-      });
+      let resp;
+      try {
+        resp = await fetch('/api/upload', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        });
+      } catch {
+        // network error — queue for later
+        await enqueue(payload);
+        await refresh();
+        return { ok: false, queued: true };
+      }
       if (resp.ok) return { ok: true, data: await resp.json() };
-      // server error — still queue
+      // server returned an error — surface it, do not queue
+      const body = await resp.json().catch(() => ({}));
+      console.error('[uploadOrQueue] server error', resp.status, body);
+      return { ok: false, queued: false, status: resp.status, error: body.error };
     }
     await enqueue(payload);
     await refresh();
