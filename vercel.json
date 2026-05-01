@@ -4,6 +4,14 @@
     { "source": "/(.*)",        "destination": "/index.html" }
   ],
   "functions": {
-    "api/upload.js": { "maxDuration": 30 }
-  }
+    "api/upload.js":             { "maxDuration": 30 },
+    "api/admin/photos/zip.js":   { "maxDuration": 60 },
+    "api/cron/purge-deleted.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    {
+      "path":     "/api/cron/purge-deleted",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }
