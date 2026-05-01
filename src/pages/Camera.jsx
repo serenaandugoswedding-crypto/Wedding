@@ -4,52 +4,28 @@ import { FILTERS, applyFilterToCanvas, canvasToBase64, resizeCanvasToMaxDimensio
 import { useGuestIdentity } from '../hooks/useGuestIdentity';
 import { useUploadQueue } from '../hooks/useUploadQueue';
 
-const PHASE = { VIEWFINDER: 'viewfinder', PREVIEW: 'preview', UPLOADING: 'uploading', DONE: 'done' };
+const PHASE = { UPLOADING: 'uploading', DONE: 'done' };
 
 export default function Camera() {
   const navigate = useNavigate();
   const { uuid } = useGuestIdentity();
   const { pendingCount, uploadOrQueue } = useUploadQueue();
 
-  const videoRef    = useRef(null);
-  const streamRef   = useRef(null);
-  const capturedImg = useRef(null);
+  const fileInputRef = useRef(null);
 
-  const [phase,          setPhase]          = useState(PHASE.VIEWFINDER);
-  const [capturedSrc,    setCapturedSrc]    = useState('');
-  const [selectedFilter, setSelectedFilter] = useState(FILTERS[0]);
-  const [filteredSrc,    setFilteredSrc]    = useState('');
-  const [thumbnails,     setThumbnails]     = useState([]);
-  const [dedication,     setDedication]     = useState('');
-  const [missionId,      setMissionId]      = useState('');
-  const [missions,       setMissions]       = useState([]);
-  const [error,          setError]          = useState('');
-  const [cameraError,    setCameraError]    = useState('');
-
-  // Start camera
-  useEffect(() => {
-    let active = true;
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
-          audio: false,
-        });
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch {
-        if (active) setCameraError('Fotocamera non disponibile. Verifica i permessi del browser.');
-      }
-    }
-    if (phase === PHASE.VIEWFINDER) startCamera();
-    return () => { active = false; if (phase !== PHASE.VIEWFINDER) stopStream(); };
-  }, [phase]);
-
-  function stopStream() {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-  }
+  const [phase,              setPhase]              = useState(null);
+  const [uploadedImage,      setUploadedImage]      = useState(null);   // HTMLImageElement
+  const [originalDimensions, setOriginalDimensions] = useState(null);
+  const [isProcessing,       setIsProcessing]       = useState(false);
+  const [selectedFilter,     setSelectedFilter]     = useState(FILTERS[0]);
+  const [filteredSrc,        setFilteredSrc]        = useState('');
+  const [isFilterChanging,   setIsFilterChanging]   = useState(false);
+  const [filterThumbnails,   setFilterThumbnails]   = useState({});     // { [filterId]: dataURL }
+  const [photoLoadKey,       setPhotoLoadKey]       = useState(0);      // incrementa su ogni nuovo upload → triggera fade-in
+  const [dedication,         setDedication]         = useState('');
+  const [missionId,          setMissionId]          = useState('');
+  const [missions,           setMissions]           = useState([]);
+  const [error,              setError]              = useState('');
 
   // Load missions
   useEffect(() => {
@@ -59,75 +35,111 @@ export default function Camera() {
       .catch(() => {});
   }, []);
 
-  function capturePhoto() {
-    const video = videoRef.current;
-    if (!video) return;
-    const canvas = document.createElement('canvas');
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    stopStream();
-    setCapturedSrc(canvas.toDataURL('image/jpeg', 0.95));
-    setPhase(PHASE.PREVIEW);
-  }
-
-  // Build thumbnails once image loads
+  // Genera thumbnail strip progressivamente e anteprima iniziale quando l'immagine è pronta
   useEffect(() => {
-    if (!capturedSrc) return;
-    const img  = new Image();
-    img.onload = () => {
-      capturedImg.current = img;
-      setThumbnails(FILTERS.map(f => ({ ...f, thumb: renderThumbnail(img, f) })));
-      const c = applyFilterToCanvas(img, FILTERS[0], 1200);
-      setFilteredSrc(canvasToBase64(c));
-    };
-    img.src = capturedSrc;
-  }, [capturedSrc]);
+    if (!uploadedImage) return;
+
+    // Anteprima iniziale (ORIGINALE, subito)
+    const c = applyFilterToCanvas(uploadedImage, FILTERS[0], 1200);
+    setFilteredSrc(canvasToBase64(c));
+
+    // Thumbnail progressivi: primo subito, poi uno per volta cedendo il main thread
+    async function buildThumbnails() {
+      setFilterThumbnails({ [FILTERS[0].id]: renderThumbnail(uploadedImage, FILTERS[0], 90) });
+      for (const filter of FILTERS.slice(1)) {
+        await new Promise(r => setTimeout(r, 0));
+        setFilterThumbnails(prev => ({
+          ...prev,
+          [filter.id]: renderThumbnail(uploadedImage, filter, 90),
+        }));
+      }
+    }
+    buildThumbnails();
+  }, [uploadedImage]);
+
+  async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsProcessing(true);
+    setError('');
+
+    // Revoca URL del file precedente per liberare memoria (importante su iPhone con foto grandi)
+    if (uploadedImage?.src) URL.revokeObjectURL(uploadedImage.src);
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = objectUrl;
+    });
+
+    setUploadedImage(img);
+    setOriginalDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+    setSelectedFilter(FILTERS[0]);
+    setFilteredSrc('');
+    setFilterThumbnails({});
+    setPhotoLoadKey(k => k + 1);
+    setIsProcessing(false);
+  }
 
   function selectFilter(filter) {
     setSelectedFilter(filter);
-    if (capturedImg.current) {
-      const c = applyFilterToCanvas(capturedImg.current, filter, 1200);
+    if (!uploadedImage) return;
+    setIsFilterChanging(true);
+    // Cede il main thread per far renderizzare l'opacity 0.6 prima del calcolo pesante
+    setTimeout(() => {
+      const c = applyFilterToCanvas(uploadedImage, filter, 1200);
       setFilteredSrc(canvasToBase64(c));
-    }
+      setIsFilterChanging(false);
+    }, 0);
   }
 
   async function handlePublish() {
     if (!uuid) { setError('Torna alla cover e inserisci il tuo nome.'); return; }
+    if (!uploadedImage) return;
     setPhase(PHASE.UPLOADING);
 
-    // Rigenera il canvas filtrato dall'immagine originale catturata.
-    // Produce due versioni: archive full-res (per backup Drive) e web 1600px (per gallery).
-    const filteredCanvas = applyFilterToCanvas(capturedImg.current, selectedFilter);
+    // IMPORTANTE: nessun maxDim — il filtro lavora sull'originale full-res.
+    // Non aggiungere maxDim qui: causerebbe il bug 486KB dove archive veniva ridotto.
+    const filteredCanvas = applyFilterToCanvas(uploadedImage, selectedFilter);
     const photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
-    const webCanvas            = resizeCanvasToMaxDimension(filteredCanvas, 1600);
-    const photo_web_base64     = canvasToBase64(webCanvas, 0.82);
+
+    // Versione web ridotta a 1600px per la gallery
+    const webCanvas        = resizeCanvasToMaxDimension(filteredCanvas, 1600);
+    const photo_web_base64 = canvasToBase64(webCanvas, 0.82);
+
+    console.log('[handlePublish] archive:', (photo_archive_base64.length * 0.75 / 1024).toFixed(0), 'KB approx');
+    console.log('[handlePublish] web:', (photo_web_base64.length * 0.75 / 1024).toFixed(0), 'KB approx');
 
     const result = await uploadOrQueue({
       photo_web_base64,
       photo_archive_base64,
-      guest_uuid:   uuid,
-      filter_used:  selectedFilter.id,
-      dedication:   dedication.trim() || null,
-      mission_id:   missionId || null,
+      guest_uuid:  uuid,
+      filter_used: selectedFilter.id,
+      dedication:  dedication.trim() || null,
+      mission_id:  missionId || null,
     });
     if (result.ok || result.queued) {
       setPhase(PHASE.DONE);
     } else {
       setError(result.error ? `Errore: ${result.error}` : 'Qualcosa è andato storto. Riprova.');
-      setPhase(PHASE.PREVIEW);
+      setPhase(null);
     }
   }
 
-  function resetForNewShot() {
-    setCapturedSrc('');
+  function resetUpload() {
+    if (uploadedImage?.src) URL.revokeObjectURL(uploadedImage.src);
+    setUploadedImage(null);
+    setOriginalDimensions(null);
+    setSelectedFilter(FILTERS[0]);
     setFilteredSrc('');
-    setThumbnails([]);
+    setFilterThumbnails({});
     setDedication('');
     setMissionId('');
-    setSelectedFilter(FILTERS[0]);
     setError('');
-    setPhase(PHASE.VIEWFINDER);
+    setPhase(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   // ── DONE ────────────────────────────────────────────────────
@@ -143,7 +155,7 @@ export default function Camera() {
             La tua foto è nel wall.
           </p>
           <div style={{ display: 'flex', gap: 16 }}>
-            <ActionBtn onClick={resetForNewShot}>SCATTA ANCORA</ActionBtn>
+            <ActionBtn onClick={resetUpload}>SCATTA ANCORA</ActionBtn>
             <ActionBtn onClick={() => navigate('/gallery')} outline>VEDI GALLERIA</ActionBtn>
           </div>
         </div>
@@ -167,153 +179,224 @@ export default function Camera() {
     );
   }
 
-  // ── PREVIEW ──────────────────────────────────────────────────
-  if (phase === PHASE.PREVIEW) {
+  // File input condiviso tra stato vuoto e preview
+  const fileInput = (
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleFileSelect}
+      ref={fileInputRef}
+      style={{ display: 'none' }}
+    />
+  );
+
+  // ── EMPTY STATE ──────────────────────────────────────────────
+  if (!uploadedImage) {
     return (
-      <div className="page-enter" style={{ ...S.page, height: '100dvh', overflow: 'hidden' }}>
-        <EditorialHeader right="SCATTA" compact />
+      <div className="page-enter" style={S.page}>
+        <EditorialHeader right="SCATTA" />
+        {fileInput}
         {pendingCount > 0 && <PendingBadge count={pendingCount} />}
 
-        {/* Filtered preview */}
-        <div style={{ width: '100%', background: '#0E0E0E', flexShrink: 0 }}>
-          {filteredSrc
-            ? <img src={filteredSrc} alt="Anteprima" style={{ width: '100%', display: 'block', maxHeight: '52vw', objectFit: 'cover' }} />
-            : <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <p style={{ fontFamily: "'Caveat', cursive", fontSize: 18, color: '#F8F5F0', fontStyle: 'italic' }}>applicando il filtro…</p>
-              </div>
-          }
-        </div>
-
-        {/* Filter strip */}
-        <div style={{ borderBottom: '0.5px solid rgba(14,14,14,0.1)', flexShrink: 0 }}>
-          <div style={{ overflowX: 'auto', display: 'flex', gap: 10, padding: '8px 20px 6px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {thumbnails.map(f => (
-              <button
-                key={f.id}
-                onClick={() => selectFilter(f)}
-                style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <div style={{
-                  width: 56, height: 56, borderRadius: 2, overflow: 'hidden',
-                  outline: selectedFilter.id === f.id ? '1.5px solid #0E0E0E' : '1.5px solid transparent',
-                  outlineOffset: 2,
-                }}>
-                  <img src={f.thumb} alt={f.label} style={{ width: 56, height: 56, display: 'block', objectFit: 'cover' }} />
-                </div>
-                <span style={{
-                  fontFamily: 'Georgia, serif', fontSize: 8, letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
-                  color: selectedFilter.id === f.id ? '#0E0E0E' : '#2A2A2A',
-                  fontWeight: selectedFilter.id === f.id ? 500 : 400,
-                }}>
-                  {f.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Dedication + mission */}
-        <div style={{ padding: '12px 20px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <p style={S.labelSm}>DEDICA — FACOLTATIVA</p>
-          <textarea
-            value={dedication}
-            onChange={e => setDedication(e.target.value)}
-            placeholder="Scrivi qualcosa…"
-            maxLength={280}
-            style={{
-              width: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none',
-              borderBottom: '0.5px solid rgba(14,14,14,0.25)', outline: 'none',
-              fontFamily: "'Caveat', cursive", fontSize: 18, color: '#0E0E0E',
-              resize: 'none', padding: '4px 0 8px', caretColor: '#8B1A1A',
-              height: '80px',
-            }}
-          />
-
-          {missions.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <p style={S.labelSm}>MISSIONE — FACOLTATIVA</p>
-              <select
-                value={missionId}
-                onChange={e => setMissionId(e.target.value)}
-                style={{
-                  width: '100%', background: '#F8F5F0',
-                  border: '0.5px solid rgba(14,14,14,0.25)', borderRadius: 2,
-                  fontFamily: 'Georgia, serif', fontSize: 13, color: '#0E0E0E',
-                  padding: '8px 10px', outline: 'none', appearance: 'none',
-                }}
-              >
-                <option value="">Nessuna missione</option>
-                {missions.map(m => (
-                  <option key={m.id} value={m.id}>{m.title} (+{m.bonus_points}pt)</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {error && <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A', marginTop: 10 }}>{error}</p>}
-        </div>
-
-        {/* PUBBLICA — sticky bottom bar, sempre visibile senza scroll */}
-        <div style={{
-          padding: '12px 20px',
-          paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
-          borderTop: '0.5px solid rgba(14,14,14,0.1)',
-          background: '#F8F5F0',
-          flexShrink: 0,
-        }}>
-          <button onClick={handlePublish} style={S.ctaBtn}>
-            PUBBLICA &nbsp;&rarr;
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', letterSpacing: '0.04em', marginBottom: 28, lineHeight: 1.8 }}>
+            Aggiungi una foto<br />al numero del giorno.
+          </p>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            style={{ ...S.ctaBtn, opacity: isProcessing ? 0.6 : 1 }}
+          >
+            {isProcessing ? 'CARICANDO…' : 'SCEGLI O SCATTA →'}
           </button>
-          <p style={{ fontFamily: "'Caveat', cursive", fontSize: 13, color: '#2A2A2A', textAlign: 'center', margin: '6px 0 0', fontStyle: 'italic' }}>
-            Pubblicato con filtro &middot; {selectedFilter.label}
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 10, color: '#2A2A2A', letterSpacing: '0.12em', marginTop: 20, opacity: 0.45 }}>
+            formato jpg · png · heic &nbsp;·&nbsp; max 10MB
           </p>
         </div>
+
+        <Footer />
       </div>
     );
   }
 
-  // ── VIEWFINDER ───────────────────────────────────────────────
+  // ── PREVIEW ──────────────────────────────────────────────────
+  const changeFotoBtn = (
+    <button
+      onClick={resetUpload}
+      style={{ background: 'transparent', border: 'none', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#8B1A1A', textTransform: 'uppercase', cursor: 'pointer', padding: 0 }}
+    >
+      ↻ CAMBIA
+    </button>
+  );
+
   return (
-    <div style={{ ...S.page, background: '#0E0E0E' }}>
-      <div style={{ position: 'absolute', top: 14, left: 20, zIndex: 10 }}>
-        <button
-          onClick={() => { stopStream(); navigate('/home'); }}
-          style={{ background: 'transparent', border: 'none', color: '#F8F5F0', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.22em', cursor: 'pointer', textTransform: 'uppercase' }}
-        >
-          &larr;&nbsp; INDIETRO
-        </button>
+    <div className="page-enter" style={{ ...S.page, height: '100dvh', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes thumbIn  { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes photoIn  { from { opacity: 0; } to { opacity: 1; } }
+      `}</style>
+      <EditorialHeader right={changeFotoBtn} compact />
+      {fileInput}
+      {pendingCount > 0 && <PendingBadge count={pendingCount} />}
+
+      {/* Preview principale — key cambia solo su nuovo upload, non su cambio filtro */}
+      <div
+        key={photoLoadKey}
+        style={{ width: '100%', background: '#0E0E0E', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 120, animation: photoLoadKey > 0 ? 'photoIn 0.2s ease-out' : 'none' }}
+      >
+        {filteredSrc ? (
+          <img
+            src={filteredSrc}
+            alt="Anteprima"
+            style={{
+              display: 'block',
+              maxWidth: '100%',
+              maxHeight: '55vh',
+              objectFit: 'contain',
+              opacity: isFilterChanging ? 0.55 : 1,
+              transition: 'opacity 0.12s ease-out',
+            }}
+          />
+        ) : (
+          <p style={{ fontFamily: "'Caveat', cursive", fontSize: 18, color: '#F8F5F0', fontStyle: 'italic', padding: '40px 0' }}>
+            applicando il filtro…
+          </p>
+        )}
       </div>
 
-      {pendingCount > 0 && (
-        <div style={{ position: 'absolute', top: 14, right: 20, zIndex: 10 }}>
-          <PendingBadge count={pendingCount} dark />
+      {/* Filter strip Photoshop-style */}
+      <div style={{ borderBottom: '0.5px solid rgba(14,14,14,0.1)', flexShrink: 0 }}>
+        <div style={{
+          overflowX: 'auto',
+          display: 'flex',
+          gap: 8,
+          padding: '10px 16px 8px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          scrollSnapType: 'x mandatory',
+        }}>
+          {FILTERS.map(f => {
+            const thumb = filterThumbnails[f.id];
+            const isActive = selectedFilter.id === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => selectFilter(f)}
+                style={{
+                  flex: '0 0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  scrollSnapAlign: 'start',
+                }}
+              >
+                <div style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  outline: isActive ? '2px solid #8B1A1A' : '1px solid rgba(14,14,14,0.12)',
+                  outlineOffset: 2,
+                  background: 'rgba(14,14,14,0.06)',
+                }}>
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt={f.label}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        display: 'block',
+                        objectFit: 'cover',
+                        animation: 'thumbIn 0.18s ease-out',
+                      }}
+                    />
+                  ) : (
+                    <div style={{ width: 60, height: 60, background: 'rgba(14,14,14,0.06)' }} />
+                  )}
+                </div>
+                <span style={{
+                  fontFamily: 'Georgia, serif',
+                  fontSize: 9,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: isActive ? '#8B1A1A' : '#2A2A2A',
+                  fontWeight: isActive ? 500 : 400,
+                }}>
+                  {f.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      {cameraError ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#F8F5F0', textAlign: 'center', lineHeight: 1.7 }}>{cameraError}</p>
-        </div>
-      ) : (
-        <video ref={videoRef} autoPlay playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover', display: 'block' }} />
-      )}
-
-      <div style={{ padding: '28px 0 40px', display: 'flex', justifyContent: 'center', background: '#0E0E0E', flexShrink: 0 }}>
-        <button
-          onClick={capturePhoto}
-          disabled={!!cameraError}
-          aria-label="Scatta foto"
+      {/* Dedication + mission */}
+      <div style={{ padding: '12px 20px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <p style={S.labelSm}>DEDICA — FACOLTATIVA</p>
+        <textarea
+          value={dedication}
+          onChange={e => setDedication(e.target.value)}
+          placeholder="Scrivi qualcosa…"
+          maxLength={280}
           style={{
-            width: 72, height: 72, borderRadius: '50%',
-            background: '#F8F5F0', border: '3px solid rgba(248,245,240,0.3)',
-            cursor: cameraError ? 'not-allowed' : 'pointer', outline: 'none',
-            boxShadow: '0 0 0 7px rgba(248,245,240,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none',
+            borderBottom: '0.5px solid rgba(14,14,14,0.25)', outline: 'none',
+            fontFamily: "'Caveat', cursive", fontSize: 18, color: '#0E0E0E',
+            resize: 'none', padding: '4px 0 8px', caretColor: '#8B1A1A',
+            height: '80px',
           }}
-        >
-          <div style={{ width: 54, height: 54, borderRadius: '50%', background: '#F8F5F0' }} />
+        />
+
+        {missions.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <p style={S.labelSm}>MISSIONE — FACOLTATIVA</p>
+            <select
+              value={missionId}
+              onChange={e => setMissionId(e.target.value)}
+              style={{
+                width: '100%', background: '#F8F5F0',
+                border: '0.5px solid rgba(14,14,14,0.25)', borderRadius: 2,
+                fontFamily: 'Georgia, serif', fontSize: 13, color: '#0E0E0E',
+                padding: '8px 10px', outline: 'none', appearance: 'none',
+              }}
+            >
+              <option value="">Nessuna missione</option>
+              {missions.map(m => (
+                <option key={m.id} value={m.id}>{m.title} (+{m.bonus_points}pt)</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {error && <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A', marginTop: 10 }}>{error}</p>}
+
+        {originalDimensions && (
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 9, color: '#2A2A2A', marginTop: 12, opacity: 0.35, letterSpacing: '0.1em' }}>
+            {originalDimensions.width} × {originalDimensions.height}px
+          </p>
+        )}
+      </div>
+
+      {/* PUBBLICA — sticky bottom bar */}
+      <div style={{
+        padding: '12px 20px',
+        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 12px))',
+        borderTop: '0.5px solid rgba(14,14,14,0.1)',
+        background: '#F8F5F0',
+        flexShrink: 0,
+      }}>
+        <button onClick={handlePublish} style={S.ctaBtn}>
+          PUBBLICA &nbsp;&rarr;
         </button>
+        <p style={{ fontFamily: "'Caveat', cursive", fontSize: 13, color: '#2A2A2A', textAlign: 'center', margin: '6px 0 0', fontStyle: 'italic' }}>
+          Pubblicato con filtro &middot; {selectedFilter.label}
+        </p>
       </div>
     </div>
   );
@@ -325,7 +408,7 @@ function EditorialHeader({ right, compact = false }) {
   return (
     <header style={{ padding: compact ? '9px 20px 7px' : '14px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '0.5px solid rgba(14,14,14,0.1)', flexShrink: 0, background: '#F8F5F0' }}>
       <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#0E0E0E', textTransform: 'uppercase' }}>VOL. I &middot; ISSUE 01</span>
-      <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#8B1A1A', textTransform: 'uppercase' }}>{right}</span>
+      <div style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#8B1A1A', textTransform: 'uppercase' }}>{right}</div>
     </header>
   );
 }
