@@ -146,6 +146,7 @@ export default function Camera() {
   if (phase === PHASE.DONE) {
     return (
       <div className="page-enter" style={S.page}>
+        <HomeBtn navigate={navigate} />
         <EditorialHeader right="SCATTA" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
           <p style={{ fontFamily: "'Caveat', cursive", fontSize: 28, color: '#4B1528', marginBottom: 8 }}>
@@ -168,6 +169,7 @@ export default function Camera() {
   if (phase === PHASE.UPLOADING) {
     return (
       <div className="page-enter" style={S.page}>
+        <HomeBtn navigate={navigate} />
         <EditorialHeader right="SCATTA" />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p style={{ fontFamily: "'Caveat', cursive", fontSize: 22, color: '#2A2A2A', fontStyle: 'italic' }}>
@@ -194,6 +196,7 @@ export default function Camera() {
   if (!uploadedImage) {
     return (
       <div className="page-enter" style={S.page}>
+        <HomeBtn navigate={navigate} />
         <EditorialHeader right="SCATTA" />
         {fileInput}
         {pendingCount > 0 && <PendingBadge count={pendingCount} />}
@@ -235,6 +238,7 @@ export default function Camera() {
         @keyframes thumbIn  { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @keyframes photoIn  { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
+      <HomeBtn navigate={navigate} />
       <EditorialHeader right={changeFotoBtn} compact />
       {fileInput}
       {pendingCount > 0 && <PendingBadge count={pendingCount} />}
@@ -403,6 +407,29 @@ export default function Camera() {
 }
 
 // ── Shared sub-components ──────────────────────────────────────
+
+function HomeBtn({ navigate }) {
+  return (
+    <button
+      onClick={() => navigate('/')}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        fontFamily: 'Georgia, serif',
+        fontSize: 10,
+        letterSpacing: '0.18em',
+        color: '#8B1A1A',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        padding: '10px 20px 4px',
+        alignSelf: 'flex-start',
+        flexShrink: 0,
+      }}
+    >
+      &larr; HOME
+    </button>
+  );
+}
 
 function EditorialHeader({ right, compact = false }) {
   return (

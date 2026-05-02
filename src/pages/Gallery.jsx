@@ -65,6 +65,9 @@ export default function Gallery() {
 
   return (
     <div className="page-enter" style={S.page}>
+      <button onClick={() => navigate('/')} style={S.homeBtn}>
+        &larr; HOME
+      </button>
       <GalleryHeader />
 
       {newCount > 0 && (
@@ -261,6 +264,18 @@ const S = {
     flexDirection: 'column',
     maxWidth: 480,
     margin: '0 auto',
+  },
+  homeBtn: {
+    background: 'transparent',
+    border: 'none',
+    fontFamily: 'Georgia, serif',
+    fontSize: 10,
+    letterSpacing: '0.18em',
+    color: '#8B1A1A',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    padding: '10px 20px 4px',
+    alignSelf: 'flex-start',
   },
   badge: {
     display: 'block',
