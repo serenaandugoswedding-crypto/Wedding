@@ -10,6 +10,8 @@ import Leaderboard from './pages/Leaderboard';
 import Slideshow from './pages/Slideshow';
 import AdminLogin from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
+import AdminPhotos from './pages/admin/Photos';
+import ProtectedRoute from './pages/admin/ProtectedRoute';
 
 export default function App() {
   return (
@@ -26,6 +28,7 @@ export default function App() {
         <Route path="/slideshow"          element={<Slideshow />} />
         <Route path="/admin"              element={<AdminLogin />} />
         <Route path="/admin/dashboard"    element={<AdminDashboard />} />
+        <Route path="/admin/photos"       element={<ProtectedRoute><AdminPhotos /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
