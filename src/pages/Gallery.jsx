@@ -143,72 +143,79 @@ export default function Gallery() {
 // ── Polaroid card ──────────────────────────────────────────────
 
 function PolaroidCard({ photo, onClick }) {
-  const [imgErr, setImgErr] = useState(false);
-  const rot = Math.max(-4, Math.min(4, photo.rotation_deg ?? 0));
+  const [imgErr,   setImgErr]   = useState(false);
+  const [hovered,  setHovered]  = useState(false);
+  const rot = Math.max(-6, Math.min(6, photo.rotation_deg ?? 0));
   const src = imgErr ? null : (photo.thumbnail_url || photo.web_url);
 
   return (
-    <div style={{ padding: '10px 6px', display: 'flex', justifyContent: 'center' }}>
-      <button
-        onClick={onClick}
-        style={{
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          cursor: 'pointer',
-          transform: `rotate(${rot}deg)`,
-          width: '100%',
-        }}
-      >
-        <div style={{
-          background: '#FFFFFF',
-          padding: '7px 7px 26px',
-          boxShadow: '0 2px 10px rgba(14,14,14,0.18), 0 1px 3px rgba(14,14,14,0.08)',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}>
-          {src ? (
-            <img
-              src={src}
-              alt={photo.guest_name || 'foto'}
-              onError={() => setImgErr(true)}
-              style={{
-                display: 'block',
-                width: '100%',
-                aspectRatio: '1',
-                objectFit: 'cover',
-              }}
-            />
-          ) : (
-            <div style={{
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        transform: `rotate(${rot}deg) scale(${hovered ? 1.03 : 1})`,
+        transformOrigin: 'center bottom',
+        transition: 'transform 200ms ease',
+        zIndex: hovered ? 2 : 1,
+        position: 'relative',
+        width: '100%',
+      }}
+    >
+      <div style={{
+        background: '#FFFFFF',
+        padding: '12px 12px 24px',
+        boxShadow: hovered
+          ? '0 8px 24px rgba(0,0,0,0.18)'
+          : '0 4px 16px rgba(0,0,0,0.12)',
+        boxSizing: 'border-box',
+        transition: 'box-shadow 200ms ease',
+      }}>
+        {src ? (
+          <img
+            src={src}
+            alt={photo.guest_name || 'foto'}
+            onError={() => setImgErr(true)}
+            style={{
+              display: 'block',
               width: '100%',
-              aspectRatio: '1',
-              background: '#F0EDE8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <span style={{ fontFamily: 'Georgia, serif', fontSize: 20, color: '#2A2A2A', opacity: 0.18 }}>
-                ✕
-              </span>
-            </div>
-          )}
-          <p style={{
-            fontFamily: "'Caveat', cursive",
-            fontSize: 12,
-            color: '#2A2A2A',
-            marginTop: 6,
-            textAlign: 'center',
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+              aspectRatio: '4 / 3',
+              objectFit: 'cover',
+            }}
+          />
+        ) : (
+          <div style={{
+            width: '100%',
+            aspectRatio: '4 / 3',
+            background: '#F0EDE8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-            {photo.guest_name || '—'}
-          </p>
-        </div>
-      </button>
-    </div>
+            <span style={{ fontFamily: 'Georgia, serif', fontSize: 20, color: '#2A2A2A', opacity: 0.18 }}>
+              ✕
+            </span>
+          </div>
+        )}
+        <p style={{
+          fontFamily: "'Caveat', cursive",
+          fontSize: 16,
+          color: '#333333',
+          marginTop: 8,
+          textAlign: 'center',
+          lineHeight: 1.2,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {photo.guest_name || '—'}
+        </p>
+      </div>
+    </button>
   );
 }
 
@@ -223,7 +230,7 @@ function GalleryHeader() {
       alignItems: 'center',
       borderBottom: '0.5px solid rgba(14,14,14,0.1)',
       flexShrink: 0,
-      background: '#F8F5F0',
+      background: '#F5F0EB',
     }}>
       <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#0E0E0E', textTransform: 'uppercase' }}>
         VOL. I &middot; ISSUE 01
@@ -259,7 +266,7 @@ function GalleryFooter() {
 const S = {
   page: {
     minHeight: '100dvh',
-    background: '#F8F5F0',
+    background: '#F5F0EB',
     display: 'flex',
     flexDirection: 'column',
     maxWidth: 480,
@@ -308,9 +315,9 @@ const S = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    padding: '4px 12px 16px',
-    gap: '0 4px',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    padding: '12px 16px 24px',
+    gap: '24px',
   },
   center: {
     flex: 1,
