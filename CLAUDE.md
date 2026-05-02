@@ -30,7 +30,7 @@
 - Sync Drive: manuale post-evento
 
 ## Prossimo task attivo
-M3-bis Fase 4 — frontend admin UI (/admin login + /admin/photos griglia + ZIP download)
+M4 — leaderboard, guestbook, slideshow
 
 ## Milestone completate
 - M1: schema, routing, cover, home
@@ -38,3 +38,5 @@ M3-bis Fase 4 — frontend admin UI (/admin login + /admin/photos griglia + ZIP 
 - M3-bis F1-3: schema admin, dual-bucket upload, filtri pixel-level, backend admin endpoints
 - Camera refactor: upload-only + filter strip
 - M3.1: Gallery polaroid wall + PhotoDetail (polaroid 2 col, polling 30s badge, paginazione, metadati editoriali)
+- M3-bis F4: admin UI completa — login, /admin/photos griglia, selezione bulk, ZIP, modal, stats
+- M3-bis chiuso: 9 Vercel Functions (da 14), filtro deleted_at verificato, debug log rimossi

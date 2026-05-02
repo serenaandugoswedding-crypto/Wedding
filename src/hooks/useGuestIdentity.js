@@ -8,14 +8,12 @@ function generateUUID() {
 }
 
 async function registerGuest(uuid, display_name) {
-  console.log('[registerGuest] calling /api/guests', { uuid, display_name });
   const resp = await fetch('/api/guests', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uuid, display_name }),
   });
   const body = await resp.json().catch(() => ({}));
-  console.log('[registerGuest] response', resp.status, body);
   if (!resp.ok) {
     throw new Error(body.error || body.detail || `guests API ${resp.status}`);
   }

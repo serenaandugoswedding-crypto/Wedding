@@ -109,9 +109,6 @@ export default function Camera() {
     const webCanvas        = resizeCanvasToMaxDimension(filteredCanvas, 1600);
     const photo_web_base64 = canvasToBase64(webCanvas, 0.82);
 
-    console.log('[handlePublish] archive:', (photo_archive_base64.length * 0.75 / 1024).toFixed(0), 'KB approx');
-    console.log('[handlePublish] web:', (photo_web_base64.length * 0.75 / 1024).toFixed(0), 'KB approx');
-
     const result = await uploadOrQueue({
       photo_web_base64,
       photo_archive_base64,
