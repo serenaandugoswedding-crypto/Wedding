@@ -220,6 +220,25 @@ function PolaroidCard({ photo, onClick }) {
         }}>
           {photo.guest_name || '—'}
         </p>
+        {photo.mission_name && (
+          <p style={{
+            fontFamily: 'Georgia, serif',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: '#8B1A1A',
+            background: 'rgba(139,26,26,0.06)',
+            padding: '2px 6px',
+            borderRadius: 2,
+            marginTop: 4,
+            textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            🎯 {photo.mission_name}
+          </p>
+        )}
       </div>
     </button>
   );

@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     .from('photos')
     .select(
       'id, guest_uuid, drive_url, thumbnail_url, dedication, filter_used, rotation_deg, created_at,' +
+      ' mission_id, mission_score, missions!photos_mission_id_fkey(title),' +
       ' guests!photos_guest_uuid_fkey(display_name)',
     )
     .eq('id', id)
@@ -26,10 +27,11 @@ export default async function handler(req, res) {
 
   if (!data) return res.status(404).json({ error: 'Photo not found' });
 
-  const { drive_url, guests, ...rest } = data;
+  const { drive_url, guests, missions, ...rest } = data;
   return res.status(200).json({
     ...rest,
-    web_url:    drive_url,
-    guest_name: guests?.display_name ?? null,
+    web_url:      drive_url,
+    guest_name:   guests?.display_name ?? null,
+    mission_name: missions?.title ?? null,
   });
 }

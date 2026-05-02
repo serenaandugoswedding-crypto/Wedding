@@ -168,6 +168,21 @@ export default function AdminPhotos() {
     } catch { /* 401 handled */ } finally { setBusy(false); }
   }
 
+  async function validateMission(photoId, percent) {
+    setBusy(true);
+    try {
+      const res = await apiFetch('/api/admin/missions?action=validate', {
+        method: 'POST',
+        body:   JSON.stringify({ photo_id: photoId, percent }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setModalPhoto(prev => prev ? { ...prev, mission_score: d.mission_score } : prev);
+        await loadPhotos(page, status);
+      }
+    } catch { /* 401 handled */ } finally { setBusy(false); }
+  }
+
   function logout() {
     sessionStorage.removeItem('admin_token');
     navigate('/admin');
@@ -298,6 +313,7 @@ export default function AdminPhotos() {
           onClose={() => setModalPhoto(null)}
           onAction={action => runModalAction(action, modalPhoto.id)}
           onZip={() => runZip([modalPhoto.id])}
+          onValidate={(percent) => validateMission(modalPhoto.id, percent)}
         />
       )}
     </div>
@@ -342,7 +358,7 @@ function PhotoCard({ photo, checked, onToggle, onOpen }) {
 
 // ── Modal ──────────────────────────────────────────────────────
 
-function PhotoModal({ photo, busy, onClose, onAction, onZip }) {
+function PhotoModal({ photo, busy, onClose, onAction, onZip, onValidate }) {
   const src = photo.drive_url || photo.thumbnail_url;
   return (
     <div onClick={onClose} style={S.overlay}>
@@ -358,6 +374,37 @@ function PhotoModal({ photo, busy, onClose, onAction, onZip }) {
           )}
           <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#888' }}>{formatDate(photo.created_at)}</p>
         </div>
+
+        {photo.mission_id && (
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 6 }}>
+              🎯 Missione: {photo.mission_name ?? photo.mission_id}
+            </p>
+            {photo.mission_score != null ? (
+              <div>
+                <p style={{ fontFamily: 'Georgia, serif', fontSize: 12, color: '#F8F5F0', marginBottom: 8 }}>
+                  {photo.mission_score} pt assegnati
+                </p>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, color: '#888' }}>CAMBIA:</span>
+                  {[25, 50, 75, 100].map(p => (
+                    <button key={p} disabled={busy} onClick={() => onValidate(p)} style={S.pctBtn}>{p}%</button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#888', marginBottom: 8 }}>Valida punteggio:</p>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {[25, 50, 75, 100].map(p => (
+                    <button key={p} disabled={busy} onClick={() => onValidate(p)} style={S.pctBtn}>{p}%</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', paddingBottom: 48 }}>
           <button disabled={busy} onClick={() => onAction('delete')}        style={S.modalBtn}>ELIMINA</button>
           <button disabled={busy} onClick={() => onAction('restore')}       style={S.modalBtn}>RIPRISTINA</button>
@@ -408,4 +455,5 @@ const S = {
   closeBtn:       { position: 'fixed', top: 16, right: 20, background: 'none', border: 'none', color: '#FFFFFF', fontSize: 32, lineHeight: 1, cursor: 'pointer', zIndex: 201, padding: '4px 8px', fontFamily: 'Georgia, serif' },
   modalContent:   { display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '90vw', cursor: 'default' },
   modalBtn:       { background: 'transparent', border: '0.5px solid rgba(248,245,240,0.4)', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer', padding: '6px 14px', color: '#F8F5F0' },
+  pctBtn:         { background: 'rgba(139,26,26,0.15)', border: '0.5px solid rgba(139,26,26,0.6)', fontFamily: 'Georgia, serif', fontSize: 11, letterSpacing: '0.1em', cursor: 'pointer', padding: '5px 12px', color: '#F8A0A0', borderRadius: 2 },
 };

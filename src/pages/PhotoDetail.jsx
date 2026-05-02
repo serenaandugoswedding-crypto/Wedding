@@ -70,6 +70,18 @@ export default function PhotoDetail() {
             {photo.dedication && (
               <p style={S.dedication}>&ldquo;{photo.dedication}&rdquo;</p>
             )}
+            {photo.mission_name && (
+              <div style={{ marginBottom: 10 }}>
+                <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2 }}>
+                  🎯 Missione: {photo.mission_name}
+                </p>
+                <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#999' }}>
+                  {photo.mission_score != null
+                    ? `${photo.mission_score} pt assegnati`
+                    : 'Validazione in corso'}
+                </p>
+              </div>
+            )}
             <p style={S.filterLabel}>
               {FILTER_LABELS[photo.filter_used] ?? photo.filter_used ?? '—'}
             </p>

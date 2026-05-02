@@ -57,6 +57,9 @@ export default function AdminDashboard() {
         <button onClick={() => navigate('/admin/photos')} style={S.linkBtn}>
           → GESTIONE FOTO
         </button>
+        <button onClick={() => navigate('/admin/missions')} style={S.linkBtn}>
+          → GESTIONE MISSIONI
+        </button>
       </div>
     </div>
   );

@@ -36,6 +36,7 @@ export default async function handler(req, res) {
     .from('photos')
     .select(
       'id, guest_uuid, drive_url, thumbnail_url, dedication, filter_used, rotation_deg, created_at,' +
+      ' mission_id, missions!photos_mission_id_fkey(title),' +
       ' guests!photos_guest_uuid_fkey(display_name)',
       { count: 'exact' },
     )
@@ -48,11 +49,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database error' });
   }
 
-  // Normalizza: drive_url → web_url, appiattisce guest_name
-  const photos = (data ?? []).map(({ drive_url, guests, ...rest }) => ({
+  // Normalizza: drive_url → web_url, appiattisce guest_name e mission_name
+  const photos = (data ?? []).map(({ drive_url, guests, missions, ...rest }) => ({
     ...rest,
-    web_url:    drive_url,
-    guest_name: guests?.display_name ?? null,
+    web_url:      drive_url,
+    guest_name:   guests?.display_name ?? null,
+    mission_name: missions?.title ?? null,
   }));
 
   const total = count ?? 0;

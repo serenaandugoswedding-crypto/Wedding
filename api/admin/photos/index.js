@@ -48,6 +48,8 @@ export default async function handler(req, res) {
     .select(
       'id, guest_uuid, drive_file_id, drive_url, thumbnail_url, archive_path, ' +
       'dedication, filter_used, like_count, is_editors_pick, ' +
+      'mission_id, mission_score, missions!photos_mission_id_fkey(title),' +
+      ' guests!photos_guest_uuid_fkey(display_name),' +
       'created_at, deleted_at, archived_at',
       { count: 'exact' },
     )
@@ -64,8 +66,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database error' });
   }
 
+  const photos = (data ?? []).map(({ missions, guests, ...rest }) => ({
+    ...rest,
+    guest_name:   guests?.display_name ?? null,
+    mission_name: missions?.title ?? null,
+  }));
+
   return res.status(200).json({
-    photos: data,
+    photos,
     total:  count,
     page,
     limit,

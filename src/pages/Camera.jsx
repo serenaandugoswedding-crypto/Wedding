@@ -198,20 +198,78 @@ export default function Camera() {
         {fileInput}
         {pendingCount > 0 && <PendingBadge count={pendingCount} />}
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
-          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', letterSpacing: '0.04em', marginBottom: 28, lineHeight: 1.8 }}>
-            Aggiungi una foto<br />al numero del giorno.
-          </p>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            style={{ ...S.ctaBtn, opacity: isProcessing ? 0.6 : 1 }}
-          >
-            {isProcessing ? 'CARICANDO…' : 'SCEGLI O SCATTA →'}
-          </button>
-          <p style={{ fontFamily: 'Georgia, serif', fontSize: 10, color: '#2A2A2A', letterSpacing: '0.12em', marginTop: 20, opacity: 0.45 }}>
-            formato jpg · png · heic &nbsp;·&nbsp; max 10MB
-          </p>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px', display: 'flex', flexDirection: 'column' }}>
+          {missions.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <p style={S.labelSm}>MISSIONI DEL GIORNO</p>
+              <div style={{ height: '0.5px', background: 'rgba(14,14,14,0.12)', marginBottom: 12 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {missions.map(m => {
+                  const sel = missionId === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setMissionId(sel ? '' : m.id)}
+                      style={{
+                        position: 'relative',
+                        background: sel ? 'rgba(139,26,26,0.04)' : 'transparent',
+                        border: sel ? '2px solid #8B1A1A' : '1px solid rgba(14,14,14,0.1)',
+                        borderRadius: 2,
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        width: '100%',
+                      }}
+                    >
+                      <span style={{ position: 'absolute', top: 10, right: 12, fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A' }}>
+                        +{m.bonus_points} pt
+                      </span>
+                      <p style={{ fontFamily: 'Georgia, serif', fontSize: 14, fontWeight: 'bold', color: '#0E0E0E', marginBottom: 2, paddingRight: 52 }}>
+                        {m.title}
+                      </p>
+                      {m.description && (
+                        <p style={{ fontFamily: 'Georgia, serif', fontSize: 12, color: '#666', lineHeight: 1.4 }}>
+                          {m.description}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setMissionId('')}
+                  style={{
+                    background: missionId === '' ? 'rgba(139,26,26,0.04)' : 'transparent',
+                    border: missionId === '' ? '2px solid #8B1A1A' : '1px solid rgba(14,14,14,0.1)',
+                    borderRadius: 2,
+                    padding: '10px 12px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontFamily: 'Georgia, serif',
+                    fontSize: 12,
+                    color: '#666',
+                  }}
+                >
+                  Nessuna missione
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 8 }}>
+            <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', letterSpacing: '0.04em', marginBottom: 28, lineHeight: 1.8 }}>
+              Aggiungi una foto<br />al numero del giorno.
+            </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              style={{ ...S.ctaBtn, opacity: isProcessing ? 0.6 : 1 }}
+            >
+              {isProcessing ? 'CARICANDO…' : 'SCEGLI O SCATTA →'}
+            </button>
+            <p style={{ fontFamily: 'Georgia, serif', fontSize: 10, color: '#2A2A2A', letterSpacing: '0.12em', marginTop: 20, opacity: 0.45 }}>
+              formato jpg · png · heic &nbsp;·&nbsp; max 10MB
+            </p>
+          </div>
         </div>
 
         <Footer />
@@ -354,24 +412,20 @@ export default function Camera() {
           }}
         />
 
-        {missions.length > 0 && (
+        {missionId && missions.length > 0 && (
           <div style={{ marginTop: 12 }}>
-            <p style={S.labelSm}>MISSIONE — FACOLTATIVA</p>
-            <select
-              value={missionId}
-              onChange={e => setMissionId(e.target.value)}
-              style={{
-                width: '100%', background: '#F8F5F0',
-                border: '0.5px solid rgba(14,14,14,0.25)', borderRadius: 2,
-                fontFamily: 'Georgia, serif', fontSize: 13, color: '#0E0E0E',
-                padding: '8px 10px', outline: 'none', appearance: 'none',
-              }}
-            >
-              <option value="">Nessuna missione</option>
-              {missions.map(m => (
-                <option key={m.id} value={m.id}>{m.title} (+{m.bonus_points}pt)</option>
-              ))}
-            </select>
+            <p style={S.labelSm}>MISSIONE SELEZIONATA</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#8B1A1A' }}>
+                {missions.find(m => m.id === missionId)?.title ?? ''}
+              </span>
+              <button
+                onClick={() => setMissionId('')}
+                style={{ background: 'transparent', border: 'none', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.14em', color: '#666', cursor: 'pointer', padding: 0, textTransform: 'uppercase' }}
+              >
+                RIMUOVI
+              </button>
+            </div>
           </div>
         )}
 
