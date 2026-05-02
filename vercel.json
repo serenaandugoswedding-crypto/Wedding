@@ -5,7 +5,7 @@
   ],
   "functions": {
     "api/upload.js":             { "maxDuration": 30 },
-    "api/admin/photos/zip.js":   { "maxDuration": 60 },
+    "api/admin/photos/actions.js": { "maxDuration": 60 },
     "api/cron/purge-deleted.js": { "maxDuration": 60 }
   },
   "crons": [
