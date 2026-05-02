@@ -65,6 +65,12 @@ export default function Gallery() {
 
   return (
     <div className="page-enter" style={S.page}>
+      <style>{`
+        @keyframes skeletonPulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.45; }
+        }
+      `}</style>
       <button onClick={() => navigate('/')} style={S.homeBtn}>
         &larr; HOME
       </button>
@@ -84,8 +90,8 @@ export default function Gallery() {
       </div>
 
       {loading ? (
-        <div style={S.center}>
-          <p style={S.caveatItalic}>caricando…</p>
+        <div style={S.grid}>
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : error ? (
         <div style={S.center}>
@@ -96,11 +102,11 @@ export default function Gallery() {
         </div>
       ) : photos.length === 0 ? (
         <div style={S.center}>
-          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', lineHeight: 1.8, marginBottom: 24 }}>
-            Nessuna foto ancora.<br />Sii il primo a pubblicare.
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', lineHeight: 1.9, marginBottom: 28 }}>
+            Nessuna foto ancora.<br />Sii il primo a scattare.
           </p>
           <button onClick={() => navigate('/camera')} style={S.ctaBtn}>
-            SCATTA UNA FOTO &nbsp;&rarr;
+            SCATTA ORA &nbsp;&rarr;
           </button>
         </div>
       ) : (
@@ -216,6 +222,34 @@ function PolaroidCard({ photo, onClick }) {
         </p>
       </div>
     </button>
+  );
+}
+
+// ── Skeleton card ──────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div style={{
+      background: '#FFFFFF',
+      padding: '12px 12px 24px',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      boxSizing: 'border-box',
+      animation: 'skeletonPulse 1.4s ease-in-out infinite',
+    }}>
+      <div style={{
+        width: '100%',
+        aspectRatio: '4 / 3',
+        background: '#E8E3DD',
+        borderRadius: 1,
+      }} />
+      <div style={{
+        height: 14,
+        width: '55%',
+        background: '#E8E3DD',
+        borderRadius: 2,
+        margin: '10px auto 0',
+      }} />
+    </div>
   );
 }
 
