@@ -72,7 +72,7 @@ export default function Gallery() {
 
       {newCount > 0 && (
         <button onClick={handleBadge} style={S.badge}>
-          +{newCount} nuove foto &middot; aggiorna
+          &uarr; {newCount} nuove foto &mdash; aggiorna
         </button>
       )}
 
@@ -122,15 +122,15 @@ export default function Gallery() {
             disabled={page <= 1}
             style={{ ...S.pageBtn, opacity: page <= 1 ? 0.3 : 1, cursor: page <= 1 ? 'default' : 'pointer' }}
           >
-            &larr; PREC
+            &larr; PRECEDENTE
           </button>
-          <span style={S.pageInfo}>p. {page} / {totalPages}</span>
+          <span style={S.pageInfo}>Pagina {page} di {totalPages}</span>
           <button
             onClick={() => goPage(page + 1)}
             disabled={page >= totalPages}
             style={{ ...S.pageBtn, opacity: page >= totalPages ? 0.3 : 1, cursor: page >= totalPages ? 'default' : 'pointer' }}
           >
-            SUCC &rarr;
+            SUCCESSIVA &rarr;
           </button>
         </div>
       )}
@@ -288,8 +288,8 @@ const S = {
     display: 'block',
     width: '100%',
     padding: '9px 20px',
-    background: '#0E0E0E',
-    color: '#F8F5F0',
+    background: '#8B1A1A',
+    color: '#FFFFFF',
     fontFamily: 'Georgia, serif',
     fontSize: 10,
     letterSpacing: '0.22em',
@@ -357,13 +357,13 @@ const S = {
   },
   pageBtn: {
     background: 'transparent',
-    border: 'none',
+    border: '0.5px solid rgba(139,26,26,0.4)',
     fontFamily: 'Georgia, serif',
     fontSize: 10,
     letterSpacing: '0.22em',
     textTransform: 'uppercase',
-    color: '#0E0E0E',
-    padding: '4px 0',
+    color: '#8B1A1A',
+    padding: '6px 12px',
   },
   pageInfo: {
     fontFamily: 'Georgia, serif',

@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     .from('photos')
     .select(
       'id, guest_uuid, drive_url, thumbnail_url, dedication, filter_used, rotation_deg, created_at,' +
-      ' guests(display_name)',
+      ' guests!photos_guest_uuid_fkey(display_name)',
     )
     .eq('id', id)
     .is('deleted_at', null)
