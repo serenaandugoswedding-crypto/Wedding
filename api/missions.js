@@ -7,7 +7,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     if (req.query.action === 'leaderboard') {
-      return res.status(501).json({ error: 'Not implemented yet' });
+      const { data, error } = await supabase.rpc('get_leaderboard');
+      if (error) return res.status(500).json({ error: 'Database error' });
+      res.setHeader('Cache-Control', 'public, max-age=30');
+      return res.status(200).json({ leaderboard: data });
     }
 
     const { data, error } = await supabase
