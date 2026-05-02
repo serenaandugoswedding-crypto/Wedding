@@ -40,7 +40,7 @@ export default function Gallery() {
     const timer = setInterval(async () => {
       if (!firstLoadTs.current) return;
       try {
-        const r = await fetch(`/api/photos/count-since?ts=${encodeURIComponent(firstLoadTs.current)}`);
+        const r = await fetch(`/api/photos?action=count-since&ts=${encodeURIComponent(firstLoadTs.current)}`);
         if (r.ok) {
           const { count } = await r.json();
           if (count > 0) setNewCount(count);

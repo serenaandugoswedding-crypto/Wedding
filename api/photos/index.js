@@ -1,11 +1,27 @@
 import { getSupabaseAdmin } from '../_lib/supabase-admin.js';
 
-// GET /api/photos — elenco pubblico foto (non eliminate)
-// Query params:
-//   page  (default 1)
-//   limit (default 20, max 50)
+// GET /api/photos              → lista foto pubbliche
+// GET /api/photos?action=count-since&ts=<ISO> → contatore nuove foto
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (req.query.action === 'count-since') {
+    const { ts } = req.query;
+    if (!ts) return res.status(400).json({ error: "'ts' (ISO 8601 timestamp) is required" });
+    const since = new Date(ts);
+    if (isNaN(since.getTime())) return res.status(400).json({ error: "'ts' must be a valid ISO 8601 timestamp" });
+
+    const supabase = getSupabaseAdmin();
+    const { count, error } = await supabase
+      .from('photos')
+      .select('*', { count: 'exact', head: true })
+      .gt('created_at', since.toISOString())
+      .is('deleted_at', null);
+
+    if (error) return res.status(500).json({ error: 'Database error' });
+    res.setHeader('Cache-Control', 'public, max-age=10');
+    return res.status(200).json({ count: count ?? 0 });
+  }
 
   const page   = Math.max(1, parseInt(req.query.page  ?? '1',  10));
   const limit  = Math.min(50, Math.max(1, parseInt(req.query.limit ?? '20', 10)));
