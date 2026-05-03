@@ -349,8 +349,8 @@ function PhotoCard({ photo, checked, busy, onToggle, onOpen, onValidate }) {
             fontFamily: 'Georgia, serif', fontSize: 9, letterSpacing: '0.14em',
             textTransform: 'uppercase', padding: '2px 6px',
             ...(isValidated
-              ? { color: '#2A7A2A', background: 'rgba(42,122,42,0.85)' }
-              : { color: '#8B1A1A', background: 'rgba(139,26,26,0.85)' }),
+              ? { color: '#FFFFFF', background: 'rgba(42,122,42,0.85)' }
+              : { color: '#FFFFFF', background: 'rgba(139,26,26,0.85)' }),
             backdropFilter: 'blur(2px)',
           }}>
             {isValidated ? '🎯 VALIDATA' : '🎯 IN ATTESA'}

@@ -122,7 +122,7 @@ export default function Cover() {
           className="type-label"
           style={{ letterSpacing: '0.18em', fontSize: 10, color: '#8B1A1A' }}
         >
-          JUNE 2026
+          AUGUST 2026
         </span>
       </header>
 
@@ -190,7 +190,7 @@ export default function Cover() {
           className="type-label-lg"
           style={{ marginTop: 14, letterSpacing: '0.22em', color: '#2A2A2A' }}
         >
-          14 &middot; GIUGNO &middot; 2026
+          29 &middot; AGOSTO &middot; 2026
         </p>
       </div>
 

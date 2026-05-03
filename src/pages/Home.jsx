@@ -74,7 +74,7 @@ export default function Home() {
             textTransform: 'uppercase',
           }}
         >
-          JUNE 2026
+          AUGUST 2026
         </span>
       </header>
 
