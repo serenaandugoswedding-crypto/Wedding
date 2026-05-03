@@ -4,7 +4,6 @@ import Home from './pages/Home';
 import Camera from './pages/Camera';
 import Gallery from './pages/Gallery';
 import PhotoDetail from './pages/PhotoDetail';
-import Guestbook from './pages/Guestbook';
 import Missions from './pages/Missions';
 import Leaderboard from './pages/Leaderboard';
 import Slideshow from './pages/Slideshow';
@@ -23,7 +22,6 @@ export default function App() {
         <Route path="/camera"             element={<Camera />} />
         <Route path="/gallery"            element={<Gallery />} />
         <Route path="/gallery/:photoId"   element={<PhotoDetail />} />
-        <Route path="/guestbook"          element={<Guestbook />} />
         <Route path="/missions"           element={<Missions />} />
         <Route path="/leaderboard"        element={<Leaderboard />} />
         <Route path="/slideshow"          element={<Slideshow />} />

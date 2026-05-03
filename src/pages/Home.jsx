@@ -20,11 +20,19 @@ const ACTIONS = [
   },
   {
     num:   '03',
-    label: 'DIARIO',
-    title: 'Il diario degli ospiti',
-    sub:   'Lascia una dedica. Firma il guestbook.',
-    path:  '/guestbook',
-    page:  'p. 24',
+    label: 'CLASSIFICA',
+    title: 'La classifica',
+    sub:   'Chi ha scattato di più. Chi ha vinto il cuore degli ospiti.',
+    path:  '/leaderboard',
+    page:  'p. 36',
+  },
+  {
+    num:   '04',
+    label: 'MISSIONI',
+    title: 'Le missioni',
+    sub:   'Sfide fotografiche da completare durante il giorno.',
+    path:  '/missions',
+    page:  'p. 48',
   },
 ];
 
@@ -257,40 +265,6 @@ export default function Home() {
           </button>
         ))}
 
-        {/* ── Secondary links ── */}
-        <div
-          style={{
-            marginTop: 28,
-            paddingTop: 16,
-            borderTop: '0.5px solid rgba(14,14,14,0.1)',
-            display: 'flex',
-            gap: 24,
-          }}
-        >
-          {[
-            { label: 'MISSIONI', path: '/missions' },
-            { label: 'CLASSIFICA', path: '/leaderboard' },
-          ].map((link) => (
-            <button
-              key={link.label}
-              onClick={() => navigate(link.path)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                fontFamily: 'Georgia, serif',
-                fontSize: 10,
-                letterSpacing: '0.28em',
-                color: '#2A2A2A',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                padding: 0,
-                textDecoration: 'none',
-              }}
-            >
-              {link.label} &rarr;
-            </button>
-          ))}
-        </div>
       </main>
 
       {/* ── Footer ── */}
