@@ -1,13 +1,20 @@
 import { getSupabaseAdmin } from '../_lib/supabase-admin.js';
 
-// GET /api/photos/:id — singola foto pubblica
+// GET  /api/photos/:id — singola foto pubblica
+// POST /api/photos/:id — incrementa like_count
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-
   const { id } = req.query;
   if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id required' });
 
   const supabase = getSupabaseAdmin();
+
+  if (req.method === 'POST') {
+    const { data, error } = await supabase.rpc('increment_like', { photo_id: id });
+    if (error) return res.status(500).json({ error: 'Database error' });
+    return res.status(200).json({ like_count: data });
+  }
+
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const { data, error } = await supabase
     .from('photos')

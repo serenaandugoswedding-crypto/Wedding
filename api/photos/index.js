@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const { data, error, count } = await supabase
     .from('photos')
     .select(
-      'id, guest_uuid, drive_url, thumbnail_url, dedication, filter_used, rotation_deg, created_at,' +
+      'id, guest_uuid, drive_url, thumbnail_url, dedication, filter_used, rotation_deg, like_count, created_at,' +
       ' mission_id, missions!photos_mission_id_fkey(title),' +
       ' guests!photos_guest_uuid_fkey(display_name)',
       { count: 'exact' },

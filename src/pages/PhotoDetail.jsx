@@ -27,24 +27,44 @@ export default function PhotoDetail() {
   const { state }   = useLocation();
   const navigate    = useNavigate();
 
-  const [photo,   setPhoto]   = useState(state?.photo ?? null);
-  const [loading, setLoading] = useState(!state?.photo);
-  const [error,   setError]   = useState('');
+  const [photo,     setPhoto]     = useState(state?.photo ?? null);
+  const [loading,   setLoading]   = useState(!state?.photo);
+  const [error,     setError]     = useState('');
+  const [likeCount, setLikeCount] = useState(state?.photo?.like_count ?? 0);
+  const [isLiked,   setIsLiked]   = useState(() => {
+    try {
+      const ids = JSON.parse(localStorage.getItem('wedding_likes') ?? '[]');
+      return ids.includes(photoId);
+    } catch { return false; }
+  });
+  const [likeAnim, setLikeAnim] = useState(false);
 
   useEffect(() => {
-    if (photo) return;
+    if (photo) { setLikeCount(photo.like_count ?? 0); return; }
     setLoading(true);
     fetch(`/api/photos/${photoId}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(d => setPhoto(d))
+      .then(d => { setPhoto(d); setLikeCount(d.like_count ?? 0); })
       .catch(() => setError('Foto non trovata.'))
       .finally(() => setLoading(false));
   }, [photoId, photo]);
+
+  async function handleLike() {
+    if (isLiked) return;
+    setIsLiked(true);
+    setLikeCount(c => c + 1);
+    setLikeAnim(true);
+    setTimeout(() => setLikeAnim(false), 200);
+    const ids = (() => { try { return JSON.parse(localStorage.getItem('wedding_likes') ?? '[]'); } catch { return []; } })();
+    localStorage.setItem('wedding_likes', JSON.stringify([...ids, photoId]));
+    try { await fetch(`/api/photos/${photoId}`, { method: 'POST' }); } catch { /* silent */ }
+  }
 
   function close() { navigate('/gallery'); }
 
   return (
     <div onClick={close} style={S.overlay}>
+      <style>{`@keyframes heartPop { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }`}</style>
       <button onClick={close} style={S.closeBtn}>&times;</button>
 
       {loading ? (
@@ -67,6 +87,16 @@ export default function PhotoDetail() {
           />
           <div style={S.meta}>
             <p style={S.guestName}>{photo.guest_name || '—'}</p>
+
+            <button onClick={handleLike} style={{ background: 'transparent', border: 'none', cursor: isLiked ? 'default' : 'pointer', marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 20, color: isLiked ? '#8B1A1A' : '#999', display: 'inline-block', animation: likeAnim ? 'heartPop 200ms ease' : 'none' }}>
+                {isLiked ? '♥' : '♡'}
+              </span>
+              <span style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#999', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                {likeCount} {isLiked ? 'MI PIACE' : 'MI PIACE'}
+              </span>
+            </button>
+
             {photo.dedication && (
               <p style={S.dedication}>&ldquo;{photo.dedication}&rdquo;</p>
             )}
