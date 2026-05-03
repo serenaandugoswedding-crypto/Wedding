@@ -240,40 +240,34 @@ function PolaroidCard({ photo, isLiked, isTop, onClick, onLike }) {
           </div>
         )}
 
-        {/* Like button — bottom right, stops propagation */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Bordo inferiore polaroid — colonna verticale */}
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {photo.mission_name && (
             <p style={{
-              fontFamily: "'Caveat', cursive", fontSize: 16, color: '#333333',
-              lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              fontFamily: 'Georgia, serif', fontSize: 10, textTransform: 'uppercase',
+              letterSpacing: '0.08em', color: '#8B1A1A', background: 'rgba(139,26,26,0.06)',
+              padding: '2px 6px', borderRadius: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              alignSelf: 'flex-start', maxWidth: '100%',
             }}>
-              {photo.guest_name || '—'}
+              🎯 {photo.mission_name}
             </p>
-            {photo.mission_name && (
-              <p style={{
-                fontFamily: 'Georgia, serif', fontSize: 10, textTransform: 'uppercase',
-                letterSpacing: '0.08em', color: '#8B1A1A', background: 'rgba(139,26,26,0.06)',
-                padding: '2px 6px', borderRadius: 2, marginTop: 4,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                display: 'inline-block', maxWidth: '100%',
-              }}>
-                🎯 {photo.mission_name}
-              </p>
-            )}
-          </div>
-
+          )}
+          <p style={{
+            fontFamily: "'Caveat', cursive", fontSize: 16, color: '#333333',
+            lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {photo.guest_name || '—'}
+          </p>
           <button
             onClick={handleLikeClick}
             style={{
               background: 'transparent', border: 'none', cursor: isLiked ? 'default' : 'pointer',
-              padding: '4px 4px 4px 8px', display: 'flex', alignItems: 'center', gap: 3,
-              flexShrink: 0,
+              padding: 0, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
             }}
           >
             <span style={{
-              fontSize: 14,
-              color: isLiked ? '#8B1A1A' : '#999',
-              display: 'inline-block',
+              fontSize: 14, color: isLiked ? '#8B1A1A' : '#999', display: 'inline-block',
               animation: animating ? 'heartPop 200ms ease' : 'none',
             }}>
               {isLiked ? '♥' : '♡'}

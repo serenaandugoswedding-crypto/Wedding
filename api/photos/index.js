@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
   const total = count ?? 0;
 
-  res.setHeader('Cache-Control', 'public, max-age=5, stale-while-revalidate=30');
+  res.setHeader('Cache-Control', 'public, max-age=0');
   return res.status(200).json({
     photos,
     total,
