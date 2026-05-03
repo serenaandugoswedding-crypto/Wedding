@@ -10,8 +10,9 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { data, error } = await supabase.rpc('increment_like', { photo_id: id });
+    console.log('[like] rpc result:', JSON.stringify(data), 'error:', error?.message);
     if (error) return res.status(500).json({ error: 'Database error' });
-    return res.status(200).json({ like_count: data });
+    return res.status(200).json({ like_count: Array.isArray(data) ? data[0] : data });
   }
 
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
