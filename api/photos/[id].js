@@ -1,3 +1,4 @@
+// v2 — POST like enabled
 import { getSupabaseAdmin } from '../_lib/supabase-admin.js';
 
 // GET  /api/photos/:id — singola foto pubblica
