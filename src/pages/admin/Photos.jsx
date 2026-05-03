@@ -177,8 +177,10 @@ export default function AdminPhotos() {
       });
       if (res.ok) {
         const d = await res.json();
-        setModalPhoto(prev => prev ? { ...prev, mission_score: d.mission_score } : prev);
-        await loadPhotos(page, status);
+        setPhotos(prev => prev.map(p =>
+          p.id === photoId ? { ...p, mission_score: d.mission_score } : p,
+        ));
+        setModalPhoto(prev => prev?.id === photoId ? { ...prev, mission_score: d.mission_score } : prev);
       }
     } catch { /* 401 handled */ } finally { setBusy(false); }
   }
@@ -285,8 +287,10 @@ export default function AdminPhotos() {
               key={photo.id}
               photo={photo}
               checked={selected.has(photo.id)}
+              busy={busy}
               onToggle={() => toggleSelect(photo.id)}
               onOpen={() => setModalPhoto(photo)}
+              onValidate={(percent) => validateMission(photo.id, percent)}
             />
           ))}
         </div>
@@ -322,11 +326,15 @@ export default function AdminPhotos() {
 
 // ── Photo card ─────────────────────────────────────────────────
 
-function PhotoCard({ photo, checked, onToggle, onOpen }) {
+function PhotoCard({ photo, checked, busy, onToggle, onOpen, onValidate }) {
   const src = photo.thumbnail_url || photo.drive_url;
+  const hasMission    = !!photo.mission_id;
+  const isValidated   = photo.mission_score != null;
+
   return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={onOpen} style={S.cardBtn}>
+    <div style={{ position: 'relative', border: '0.5px solid rgba(14,14,14,0.1)', background: '#FFFFFF' }}>
+      {/* Image — clickable to open modal */}
+      <div style={{ position: 'relative', cursor: 'pointer' }} onClick={onOpen}>
         {src ? (
           <img src={src} alt="" style={S.cardImg} />
         ) : (
@@ -334,15 +342,47 @@ function PhotoCard({ photo, checked, onToggle, onOpen }) {
             <span style={{ fontSize: 18, opacity: 0.25 }}>✕</span>
           </div>
         )}
-        <div style={S.cardMeta}>
-          <span style={S.cardName}>{photo.guest_name ?? '—'}</span>
-          <span style={S.cardDate}>{formatDate(photo.created_at)}</span>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
-            {photo.deleted_at  && <span style={S.badgeRed}>ELIMINATA</span>}
-            {photo.archived_at && <span style={S.badgeGreen}>ARCHIVIATA</span>}
-          </div>
+        {/* Mission badge — overlaid bottom-left of image */}
+        {hasMission && (
+          <span style={{
+            position: 'absolute', bottom: 6, left: 6,
+            fontFamily: 'Georgia, serif', fontSize: 9, letterSpacing: '0.14em',
+            textTransform: 'uppercase', padding: '2px 6px',
+            ...(isValidated
+              ? { color: '#2A7A2A', background: 'rgba(42,122,42,0.85)' }
+              : { color: '#8B1A1A', background: 'rgba(139,26,26,0.85)' }),
+            backdropFilter: 'blur(2px)',
+          }}>
+            {isValidated ? '🎯 VALIDATA' : '🎯 IN ATTESA'}
+          </span>
+        )}
+      </div>
+
+      {/* Meta — outside the image button to allow nested buttons */}
+      <div style={S.cardMeta}>
+        <span style={S.cardName}>{photo.guest_name ?? '—'}</span>
+        <span style={S.cardDate}>{formatDate(photo.created_at)}</span>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+          {photo.deleted_at  && <span style={S.badgeRed}>ELIMINATA</span>}
+          {photo.archived_at && <span style={S.badgeGreen}>ARCHIVIATA</span>}
         </div>
-      </button>
+        {/* Inline validation buttons */}
+        {hasMission && !isValidated && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+            {[25, 50, 75, 100].map(p => (
+              <button
+                key={p}
+                disabled={busy}
+                onClick={e => { e.stopPropagation(); onValidate(p); }}
+                style={S.cardPctBtn}
+              >
+                {p}%
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <label style={S.checkWrap}>
         <input
           type="checkbox"
@@ -438,8 +478,8 @@ const S = {
   bulkBtn:        { background: 'transparent', border: '0.5px solid rgba(248,245,240,0.4)', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', cursor: 'pointer', padding: '5px 12px', color: '#F8F5F0' },
   actionMsg:      { fontFamily: 'Georgia, serif', fontSize: 11, color: '#F8A0A0', marginLeft: 8 },
   grid:           { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, padding: '16px 24px' },
-  cardBtn:        { background: 'transparent', border: '0.5px solid rgba(14,14,14,0.1)', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left', display: 'block' },
   cardImg:        { display: 'block', width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' },
+  cardPctBtn:     { background: 'transparent', border: '0.5px solid rgba(139,26,26,0.5)', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.1em', color: '#8B1A1A', cursor: 'pointer', padding: '3px 8px', borderRadius: 1 },
   cardMeta:       { padding: '8px 10px 10px', background: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: 2 },
   cardName:       { fontFamily: "'Caveat', cursive", fontSize: 13, color: '#0E0E0E' },
   cardDate:       { fontFamily: 'Georgia, serif', fontSize: 11, color: '#999' },
