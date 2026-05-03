@@ -336,7 +336,7 @@ const S = {
   badge:        { display: 'block', width: '100%', padding: '9px 20px', background: '#8B1A1A', color: '#FFFFFF', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', textAlign: 'center' },
   sectionLabel: { fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.28em', color: '#2A2A2A', textTransform: 'uppercase', marginBottom: 0 },
   totalLine:    { fontFamily: 'Georgia, serif', fontSize: 10, color: '#8B1A1A', letterSpacing: '0.1em', marginTop: 4 },
-  grid:         { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', padding: '12px 16px 24px', gap: '24px' },
+  grid:         { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', padding: '28px 16px 24px', gap: '24px' },
   center:       { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' },
   ctaBtn:       { display: 'inline-block', padding: '12px 24px', background: '#0E0E0E', color: '#F8F5F0', fontFamily: 'Georgia, serif', fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', border: 'none', borderRadius: 2, cursor: 'pointer' },
   paginationRow:{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '0.5px solid rgba(14,14,14,0.1)', marginTop: 8 },
