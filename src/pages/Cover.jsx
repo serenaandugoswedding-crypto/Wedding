@@ -41,7 +41,6 @@ function AnimatedWord({ word, startDelay }) {
 const TOC_ITEMS = [
   { num: '01', title: 'Scatta una foto',       page: 'p. 02', path: '/camera' },
   { num: '02', title: 'Il provino del giorno', page: 'p. 12', path: '/gallery' },
-  { num: '03', title: 'Il diario degli ospiti', page: 'p. 24', path: '/guestbook' },
 ];
 
 export default function Cover() {
@@ -87,7 +86,7 @@ export default function Cover() {
       navigate('/home');
     } catch (err) {
       console.error('[Cover] identify error:', err.message);
-      setError(`Errore di registrazione: ${err.message}`);
+      setError(err.message);
     }
   }
 
@@ -302,7 +301,7 @@ export default function Cover() {
                   fontStyle: 'italic',
                 }}
               >
-                Il tuo nome appare nelle foto e nel guestbook.
+                Il tuo nome appare nelle foto che pubblichi.
               </p>
             </form>
           </div>

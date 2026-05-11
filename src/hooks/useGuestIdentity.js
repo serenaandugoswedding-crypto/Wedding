@@ -15,7 +15,7 @@ async function registerGuest(uuid, display_name) {
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    throw new Error(body.error || body.detail || `guests API ${resp.status}`);
+    throw new Error(body.message || body.error || body.detail || `guests API ${resp.status}`);
   }
   return body;
 }
@@ -46,12 +46,12 @@ export function useGuestIdentity() {
   async function identify(displayName) {
     const id = uuid || generateUUID();
     const trimmed = displayName.trim();
+    setRegisterError('');
+    await registerGuest(id, trimmed); // throws if API fails (409 = name taken)
     localStorage.setItem('wedding_guest_uuid', id);
     localStorage.setItem('wedding_guest_name', trimmed);
     setUuid(id);
     setName(trimmed);
-    setRegisterError('');
-    await registerGuest(id, trimmed); // throws if API fails
     setRegistered(true);
   }
 

@@ -19,12 +19,28 @@ export default async function handler(req, res) {
   }
 
   const supabase = getSupabaseAdmin();
-  console.log('[guests] upserting uuid:', uuid, 'name:', display_name.trim());
+  const trimmedName = display_name.trim();
+  console.log('[guests] upserting uuid:', uuid, 'name:', trimmedName);
+
+  // Check case-insensitive name uniqueness (exclude same uuid for returning guests)
+  const { data: nameTaken } = await supabase
+    .from('guests')
+    .select('uuid')
+    .ilike('display_name', trimmedName)
+    .neq('uuid', uuid)
+    .maybeSingle();
+
+  if (nameTaken) {
+    return res.status(409).json({
+      error: 'name_taken',
+      message: `Un ${trimmedName} è già registrato. Aggiungi iniziale cognome o usa nome diverso.`,
+    });
+  }
 
   const { data, error } = await supabase
     .from('guests')
     .upsert(
-      { uuid, display_name: display_name.trim() },
+      { uuid, display_name: trimmedName },
       { onConflict: 'uuid', ignoreDuplicates: false }
     )
     .select('uuid, display_name, total_points, photos_count')
