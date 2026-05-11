@@ -41,7 +41,7 @@ export default function Leaderboard() {
 
   return (
     <div style={S.page}>
-      <button onClick={() => navigate('/')} style={S.homeBtn}>&larr; HOME</button>
+      <button onClick={() => navigate('/home')} style={S.homeBtn}>&larr; HOME</button>
 
       <header style={S.header}>
         <span style={S.headerLeft}>VOL. I &middot; ISSUE 01</span>

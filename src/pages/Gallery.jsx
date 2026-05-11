@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 20;
+const SORT_MODES = {
+  RECENT: 'recent',
+  LOVED:  'loved',
+};
+const FILTER_MODES = {
+  ALL:  'all',
+  MINE: 'mine',
+};
 
 function getTopLikeThreshold(photos) {
   if (photos.length === 0) return Infinity;
@@ -20,11 +28,14 @@ export default function Gallery() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [newCount,   setNewCount]   = useState(0);
+  const [sortMode,   setSortMode]   = useState(SORT_MODES.RECENT);
+  const [filterMode, setFilterMode] = useState(FILTER_MODES.ALL);
   const [likedIds,   setLikedIds]   = useState(() => {
     try { return JSON.parse(localStorage.getItem('wedding_likes') ?? '[]'); }
     catch { return []; }
   });
   const firstLoadTs = useRef(null);
+  const myGuestUuid = localStorage.getItem('wedding_guest_uuid') || '';
 
   const loadPage = useCallback(async (p) => {
     setLoading(true);
@@ -65,7 +76,7 @@ export default function Gallery() {
   function handleBadge() {
     firstLoadTs.current = new Date().toISOString();
     setNewCount(0);
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     loadPage(1);
   }
 
@@ -88,7 +99,18 @@ export default function Gallery() {
     } catch { /* rollback silenzioso */ }
   }
 
-  const threshold = getTopLikeThreshold(photos);
+  // TODO backend: quando /api/photos supportera sort/filter, spostare qui ordinamento e filtro globali.
+  const visiblePhotos = photos
+    .filter(photo => filterMode === FILTER_MODES.ALL || photo.guest_uuid === myGuestUuid)
+    .sort((a, b) => {
+      if (sortMode === SORT_MODES.LOVED) {
+        const byLikes = (b.like_count ?? 0) - (a.like_count ?? 0);
+        if (byLikes !== 0) return byLikes;
+      }
+      return new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0);
+    });
+  const canFilterMine = Boolean(myGuestUuid) && photos.some(photo => 'guest_uuid' in photo);
+  const threshold = getTopLikeThreshold(visiblePhotos);
 
   return (
     <div className="page-enter" style={S.page}>
@@ -103,7 +125,7 @@ export default function Gallery() {
           100% { transform: scale(1); }
         }
       `}</style>
-      <button onClick={() => navigate('/')} style={S.homeBtn}>
+      <button onClick={() => navigate('/home')} style={S.homeBtn}>
         &larr; HOME
       </button>
       <GalleryHeader />
@@ -119,6 +141,13 @@ export default function Gallery() {
         {!loading && total > 0 && (
           <p style={S.totalLine}>{total} foto pubblicate</p>
         )}
+        <GalleryControls
+          sortMode={sortMode}
+          filterMode={filterMode}
+          canFilterMine={canFilterMine}
+          onSortChange={setSortMode}
+          onFilterChange={setFilterMode}
+        />
       </div>
 
       {loading ? (
@@ -141,9 +170,18 @@ export default function Gallery() {
             SCATTA ORA &nbsp;&rarr;
           </button>
         </div>
+      ) : visiblePhotos.length === 0 ? (
+        <div style={S.center}>
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', lineHeight: 1.9, marginBottom: 28 }}>
+            Nessuna foto in questa vista.
+          </p>
+          <button onClick={() => setFilterMode(FILTER_MODES.ALL)} style={S.ctaBtn}>
+            MOSTRA TUTTE
+          </button>
+        </div>
       ) : (
         <div style={S.grid}>
-          {photos.map(photo => (
+          {visiblePhotos.map(photo => (
             <PolaroidCard
               key={photo.id}
               photo={photo}
@@ -316,6 +354,60 @@ function GalleryHeader() {
   );
 }
 
+function GalleryControls({ sortMode, filterMode, canFilterMine, onSortChange, onFilterChange }) {
+  return (
+    <div style={S.controlsWrap}>
+      <div>
+        <p style={S.controlLabel}>ORDINE</p>
+        <div style={S.segmentRow}>
+          <SegmentButton active={sortMode === SORT_MODES.RECENT} onClick={() => onSortChange(SORT_MODES.RECENT)}>
+            RECENTI
+          </SegmentButton>
+          <SegmentButton active={sortMode === SORT_MODES.LOVED} onClick={() => onSortChange(SORT_MODES.LOVED)}>
+            PIÙ AMATE
+          </SegmentButton>
+        </div>
+      </div>
+      <div>
+        <p style={S.controlLabel}>FILTRO</p>
+        <div style={S.segmentRow}>
+          <SegmentButton active={filterMode === FILTER_MODES.ALL} onClick={() => onFilterChange(FILTER_MODES.ALL)}>
+            TUTTE
+          </SegmentButton>
+          <SegmentButton
+            active={filterMode === FILTER_MODES.MINE}
+            disabled={!canFilterMine}
+            onClick={() => canFilterMine && onFilterChange(FILTER_MODES.MINE)}
+          >
+            FOTO MIE
+          </SegmentButton>
+        </div>
+        {!canFilterMine && (
+          <p style={S.todoLine}>Filtro disponibile dopo aver pubblicato una foto.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SegmentButton({ active, disabled = false, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...S.segmentBtn,
+        background: active ? '#0E0E0E' : 'transparent',
+        color: active ? '#F8F5F0' : '#8B1A1A',
+        opacity: disabled ? 0.35 : 1,
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 function GalleryFooter() {
   return (
     <footer style={{
@@ -336,6 +428,11 @@ const S = {
   badge:        { display: 'block', width: '100%', padding: '9px 20px', background: '#8B1A1A', color: '#FFFFFF', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', textAlign: 'center' },
   sectionLabel: { fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.28em', color: '#2A2A2A', textTransform: 'uppercase', marginBottom: 0 },
   totalLine:    { fontFamily: 'Georgia, serif', fontSize: 10, color: '#8B1A1A', letterSpacing: '0.1em', marginTop: 4 },
+  controlsWrap: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 },
+  controlLabel: { fontFamily: 'Georgia, serif', fontSize: 9, letterSpacing: '0.22em', color: '#2A2A2A', textTransform: 'uppercase', marginBottom: 6 },
+  segmentRow:   { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  segmentBtn:   { border: '0.5px solid rgba(139,26,26,0.45)', borderRadius: 2, fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '7px 10px' },
+  todoLine:     { fontFamily: 'Georgia, serif', fontSize: 10, color: '#2A2A2A', opacity: 0.55, marginTop: 6 },
   grid:         { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', padding: '28px 16px 24px', gap: '24px' },
   center:       { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' },
   ctaBtn:       { display: 'inline-block', padding: '12px 24px', background: '#0E0E0E', color: '#F8F5F0', fontFamily: 'Georgia, serif', fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', border: 'none', borderRadius: 2, cursor: 'pointer' },

@@ -567,7 +567,7 @@ export default function Camera() {
 function HomeBtn({ navigate }) {
   return (
     <button
-      onClick={() => navigate('/')}
+      onClick={() => navigate('/home')}
       style={{
         background: 'transparent',
         border: 'none',

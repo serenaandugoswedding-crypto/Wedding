@@ -218,7 +218,7 @@ function ProfilePolaroid({ photo, onClick }) {
 function HomeBtn({ navigate }) {
   return (
     <button
-      onClick={() => navigate('/')}
+      onClick={() => navigate('/home')}
       style={{ background: 'transparent', border: 'none', fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: '#8B1A1A', textTransform: 'uppercase', cursor: 'pointer', padding: '10px 20px 4px', alignSelf: 'flex-start' }}
     >
       &larr; HOME
