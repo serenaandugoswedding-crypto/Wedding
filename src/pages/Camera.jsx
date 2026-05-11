@@ -5,11 +5,13 @@ import { useGuestIdentity } from '../hooks/useGuestIdentity';
 import { useUploadQueue } from '../hooks/useUploadQueue';
 
 const PHASE = { UPLOADING: 'uploading', DONE: 'done' };
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'];
 
 export default function Camera() {
   const navigate = useNavigate();
   const { uuid } = useGuestIdentity();
-  const { pendingCount, uploadOrQueue } = useUploadQueue();
+  const { pendingCount, uploadOrQueue, retryPendingUploads } = useUploadQueue();
 
   const fileInputRef = useRef(null);
 
@@ -17,6 +19,7 @@ export default function Camera() {
   const [uploadedImage,      setUploadedImage]      = useState(null);   // HTMLImageElement
   const [originalDimensions, setOriginalDimensions] = useState(null);
   const [isProcessing,       setIsProcessing]       = useState(false);
+  const [isPublishingRender, setIsPublishingRender] = useState(false);
   const [selectedFilter,     setSelectedFilter]     = useState(FILTERS[0]);
   const [filteredSrc,        setFilteredSrc]        = useState('');
   const [isFilterChanging,   setIsFilterChanging]   = useState(false);
@@ -26,6 +29,9 @@ export default function Camera() {
   const [missionId,          setMissionId]          = useState('');
   const [missions,           setMissions]           = useState([]);
   const [error,              setError]              = useState('');
+  const [queuedPublish,      setQueuedPublish]      = useState(false);
+  const [queueMessage,       setQueueMessage]       = useState('');
+  const [isRetryingQueue,    setIsRetryingQueue]    = useState(false);
 
   // Load missions
   useEffect(() => {
@@ -60,19 +66,46 @@ export default function Camera() {
   async function handleFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
+    if (phase === PHASE.UPLOADING || isProcessing || isPublishingRender || isFilterChanging) return;
+
+    if (file.size > MAX_FILE_BYTES) {
+      setError('La foto supera 10MB. Scegli un file più leggero.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const hasSupportedType = file.type ? file.type.startsWith('image/') : false;
+    const hasSupportedExtension = extension ? SUPPORTED_IMAGE_EXTENSIONS.includes(extension) : false;
+    if (!hasSupportedType && !hasSupportedExtension) {
+      setError('Formato non supportato. Usa una foto JPG, PNG, HEIC o WebP.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setIsProcessing(true);
     setError('');
+    setQueuedPublish(false);
+    setQueueMessage('');
 
     // Revoca URL del file precedente per liberare memoria (importante su iPhone con foto grandi)
     if (uploadedImage?.src) URL.revokeObjectURL(uploadedImage.src);
 
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = objectUrl;
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
+    } catch {
+      URL.revokeObjectURL(objectUrl);
+      setError('Non riesco a leggere questa immagine. Prova con un altro file.');
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setUploadedImage(img);
     setOriginalDimensions({ width: img.naturalWidth, height: img.naturalHeight });
@@ -84,6 +117,7 @@ export default function Camera() {
   }
 
   function selectFilter(filter) {
+    if (phase === PHASE.UPLOADING || isPublishingRender || isFilterChanging) return;
     setSelectedFilter(filter);
     if (!uploadedImage) return;
     setIsFilterChanging(true);
@@ -96,32 +130,79 @@ export default function Camera() {
   }
 
   async function handlePublish() {
+    if (phase === PHASE.UPLOADING || isPublishingRender || isFilterChanging) return;
     if (!uuid) { setError('Torna alla cover e inserisci il tuo nome.'); return; }
     if (!uploadedImage) return;
     setPhase(PHASE.UPLOADING);
+    setIsPublishingRender(true);
+    setError('');
+    setQueuedPublish(false);
+    setQueueMessage('');
 
-    // IMPORTANTE: nessun maxDim — il filtro lavora sull'originale full-res.
-    // Non aggiungere maxDim qui: causerebbe il bug 486KB dove archive veniva ridotto.
-    const filteredCanvas = applyFilterToCanvas(uploadedImage, selectedFilter);
-    const photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
+    let photo_archive_base64;
+    let photo_web_base64;
+    try {
+      // IMPORTANTE: nessun maxDim — il filtro lavora sull'originale full-res.
+      // Non aggiungere maxDim qui: causerebbe il bug 486KB dove archive veniva ridotto.
+      const filteredCanvas = applyFilterToCanvas(uploadedImage, selectedFilter);
+      photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
 
-    // Versione web ridotta a 1600px per la gallery
-    const webCanvas        = resizeCanvasToMaxDimension(filteredCanvas, 1600);
-    const photo_web_base64 = canvasToBase64(webCanvas, 0.82);
+      // Versione web ridotta a 1600px per la gallery
+      const webCanvas        = resizeCanvasToMaxDimension(filteredCanvas, 1600);
+      photo_web_base64 = canvasToBase64(webCanvas, 0.82);
+    } catch (err) {
+      console.error('[Camera] render error:', err);
+      setIsPublishingRender(false);
+      setError('Non sono riuscito a preparare la foto. Riprova senza cambiare immagine.');
+      setPhase(null);
+      return;
+    }
 
-    const result = await uploadOrQueue({
-      photo_web_base64,
-      photo_archive_base64,
-      guest_uuid:  uuid,
-      filter_used: selectedFilter.id,
-      dedication:  dedication.trim() || null,
-      mission_id:  missionId || null,
-    });
+    let result;
+    try {
+      result = await uploadOrQueue({
+        photo_web_base64,
+        photo_archive_base64,
+        guest_uuid:  uuid,
+        filter_used: selectedFilter.id,
+        dedication:  dedication.trim() || null,
+        mission_id:  missionId || null,
+      });
+    } catch (err) {
+      console.error('[Camera] upload error:', err);
+      setIsPublishingRender(false);
+      setError('Upload non riuscito. Controlla la connessione e riprova.');
+      setPhase(null);
+      return;
+    }
+    setIsPublishingRender(false);
     if (result.ok || result.queued) {
+      setQueuedPublish(Boolean(result.queued));
+      setQueueMessage(result.queued ? 'Foto salvata. Verrà pubblicata quando torna connessione.' : '');
       setPhase(PHASE.DONE);
     } else {
-      setError(result.error ? `Errore: ${result.error}` : 'Qualcosa è andato storto. Riprova.');
+      setError(result.error ? `Upload non riuscito: ${result.error}` : 'Upload non riuscito. Controlla la connessione e riprova.');
       setPhase(null);
+    }
+  }
+
+  async function handleRetryPendingUploads() {
+    if (isRetryingQueue) return;
+    setIsRetryingQueue(true);
+    setQueueMessage('');
+    try {
+      const result = await retryPendingUploads();
+      if (result.offline) {
+        setQueueMessage('Sei offline. Le foto restano salvate e verranno pubblicate quando torna connessione.');
+      } else if (result.remaining > 0) {
+        setQueueMessage(`${result.uploaded} foto pubblicate. ${result.remaining} ancora in attesa.`);
+      } else {
+        setQueueMessage(result.uploaded > 0 ? 'Foto in coda pubblicate.' : 'Nessuna foto in attesa.');
+      }
+    } catch {
+      setQueueMessage('Riprova non riuscito. Le foto restano salvate in coda.');
+    } finally {
+      setIsRetryingQueue(false);
     }
   }
 
@@ -135,6 +216,8 @@ export default function Camera() {
     setDedication('');
     setMissionId('');
     setError('');
+    setQueuedPublish(false);
+    setQueueMessage('');
     setPhase(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -147,11 +230,16 @@ export default function Camera() {
         <EditorialHeader right="SCATTA" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
           <p style={{ fontFamily: "'Caveat', cursive", fontSize: 28, color: '#4B1528', marginBottom: 8 }}>
-            Pubblicato.
+            {queuedPublish ? 'Salvato.' : 'Pubblicato.'}
           </p>
           <p style={{ fontFamily: 'Georgia, serif', fontSize: 13, color: '#2A2A2A', marginBottom: 32, letterSpacing: '0.04em' }}>
-            La tua foto è nel wall.
+            {queuedPublish ? 'Foto salvata. Verrà pubblicata quando torna connessione.' : 'La tua foto è nel wall.'}
           </p>
+          {pendingCount > 0 && (
+            <div style={{ width: '100%', marginBottom: 24 }}>
+              <PendingBadge count={pendingCount} onRetry={handleRetryPendingUploads} isRetrying={isRetryingQueue} message={queueMessage} />
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 16 }}>
             <ActionBtn onClick={resetUpload}>SCATTA ANCORA</ActionBtn>
             <ActionBtn onClick={() => navigate('/gallery')} outline>VEDI GALLERIA</ActionBtn>
@@ -196,7 +284,7 @@ export default function Camera() {
         <HomeBtn navigate={navigate} />
         <EditorialHeader right="SCATTA" />
         {fileInput}
-        {pendingCount > 0 && <PendingBadge count={pendingCount} />}
+      {pendingCount > 0 && <PendingBadge count={pendingCount} onRetry={handleRetryPendingUploads} isRetrying={isRetryingQueue} message={queueMessage} />}
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px', display: 'flex', flexDirection: 'column' }}>
           {missions.length > 0 && (
@@ -261,11 +349,12 @@ export default function Camera() {
             </p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
-              style={{ ...S.ctaBtn, opacity: isProcessing ? 0.6 : 1 }}
+              disabled={isProcessing || isPublishingRender || isFilterChanging}
+              style={{ ...S.ctaBtn, opacity: isProcessing || isPublishingRender || isFilterChanging ? 0.6 : 1 }}
             >
               {isProcessing ? 'CARICANDO…' : 'SCEGLI O SCATTA →'}
             </button>
+            {error && <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: '#8B1A1A', marginTop: 12 }}>{error}</p>}
             <p style={{ fontFamily: 'Georgia, serif', fontSize: 10, color: '#2A2A2A', letterSpacing: '0.12em', marginTop: 20, opacity: 0.45 }}>
               formato jpg · png · heic &nbsp;·&nbsp; max 10MB
             </p>
@@ -296,7 +385,7 @@ export default function Camera() {
       <HomeBtn navigate={navigate} />
       <EditorialHeader right={changeFotoBtn} compact />
       {fileInput}
-      {pendingCount > 0 && <PendingBadge count={pendingCount} />}
+        {pendingCount > 0 && <PendingBadge count={pendingCount} onRetry={handleRetryPendingUploads} isRetrying={isRetryingQueue} message={queueMessage} />}
 
       {/* Preview principale — key cambia solo su nuovo upload, non su cambio filtro */}
       <div
@@ -310,7 +399,7 @@ export default function Camera() {
             style={{
               display: 'block',
               maxWidth: '100%',
-              maxHeight: '55vh',
+              maxHeight: '45vh',
               objectFit: 'contain',
               opacity: isFilterChanging ? 0.55 : 1,
               transition: 'opacity 0.12s ease-out',
@@ -324,12 +413,15 @@ export default function Camera() {
       </div>
 
       {/* Filter strip Photoshop-style */}
-      <div style={{ borderBottom: '0.5px solid rgba(14,14,14,0.1)', flexShrink: 0 }}>
+      <div style={{ borderBottom: '0.5px solid rgba(14,14,14,0.1)', flexShrink: 0, height: 80, boxSizing: 'border-box' }}>
         <div style={{
           overflowX: 'auto',
+          overflowY: 'hidden',
+          height: '100%',
           display: 'flex',
+          alignItems: 'center',
           gap: 8,
-          padding: '10px 16px 8px',
+          padding: '4px 16px',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           scrollSnapType: 'x mandatory',
@@ -341,6 +433,7 @@ export default function Camera() {
               <button
                 key={f.id}
                 onClick={() => selectFilter(f)}
+                disabled={phase === PHASE.UPLOADING || isPublishingRender || isFilterChanging}
                 style={{
                   flex: '0 0 auto',
                   display: 'flex',
@@ -408,7 +501,7 @@ export default function Camera() {
             borderBottom: '0.5px solid rgba(14,14,14,0.25)', outline: 'none',
             fontFamily: "'Caveat', cursive", fontSize: 18, color: '#0E0E0E',
             resize: 'none', padding: '4px 0 8px', caretColor: '#8B1A1A',
-            height: '80px',
+            height: '60px',
           }}
         />
 
@@ -446,8 +539,12 @@ export default function Camera() {
         background: '#F8F5F0',
         flexShrink: 0,
       }}>
-        <button onClick={handlePublish} style={S.ctaBtn}>
-          PUBBLICA &nbsp;&rarr;
+        <button
+          onClick={handlePublish}
+          disabled={phase === PHASE.UPLOADING || isPublishingRender || isFilterChanging}
+          style={{ ...S.ctaBtn, opacity: phase === PHASE.UPLOADING || isPublishingRender || isFilterChanging ? 0.55 : 1 }}
+        >
+          {isPublishingRender ? 'PREPARO LA FOTO...' : 'PUBBLICA  →'}
         </button>
         <p style={{ fontFamily: "'Caveat', cursive", fontSize: 13, color: '#2A2A2A', textAlign: 'center', margin: '6px 0 0', fontStyle: 'italic' }}>
           Pubblicato con filtro &middot; {selectedFilter.label}
@@ -511,12 +608,40 @@ function ActionBtn({ onClick, children, outline = false }) {
   );
 }
 
-function PendingBadge({ count, dark = false }) {
+function PendingBadge({ count, dark = false, onRetry, isRetrying = false, message = '' }) {
   return (
-    <div style={{ padding: '6px 20px', background: dark ? 'rgba(248,245,240,0.08)' : 'rgba(14,14,14,0.04)', borderBottom: dark ? 'none' : '0.5px solid rgba(14,14,14,0.08)' }}>
-      <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.18em', color: dark ? '#F8F5F0' : '#2A2A2A' }}>
-        &middot; {count} foto in attesa &middot;
-      </span>
+    <div style={{ padding: '8px 20px', background: dark ? 'rgba(248,245,240,0.08)' : 'rgba(14,14,14,0.04)', borderBottom: dark ? 'none' : '0.5px solid rgba(14,14,14,0.08)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <span style={{ fontFamily: 'Georgia, serif', fontSize: 10, letterSpacing: '0.14em', color: dark ? '#F8F5F0' : '#2A2A2A', textTransform: 'uppercase' }}>
+          {count === 1 ? '1 foto in coda' : `${count} foto in coda`}
+        </span>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            disabled={isRetrying}
+            style={{
+              background: 'transparent',
+              border: '0.5px solid rgba(139,26,26,0.45)',
+              borderRadius: 2,
+              color: dark ? '#F8F5F0' : '#8B1A1A',
+              cursor: isRetrying ? 'default' : 'pointer',
+              fontFamily: 'Georgia, serif',
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              opacity: isRetrying ? 0.55 : 1,
+              padding: '5px 8px',
+              textTransform: 'uppercase',
+            }}
+          >
+            {isRetrying ? 'RIPROVO...' : 'RIPROVA ORA'}
+          </button>
+        )}
+      </div>
+      {message && (
+        <p style={{ fontFamily: 'Georgia, serif', fontSize: 11, color: dark ? '#F8F5F0' : '#2A2A2A', margin: '6px 0 0', lineHeight: 1.4 }}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }
