@@ -6,7 +6,7 @@ import Gallery from './pages/Gallery';
 import PhotoDetail from './pages/PhotoDetail';
 import Missions from './pages/Missions';
 import Leaderboard from './pages/Leaderboard';
-import Slideshow from './pages/Slideshow';
+import Profile from './pages/Profile';
 import AdminLogin from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminPhotos from './pages/admin/Photos';
@@ -24,7 +24,7 @@ export default function App() {
         <Route path="/gallery/:photoId"   element={<PhotoDetail />} />
         <Route path="/missions"           element={<Missions />} />
         <Route path="/leaderboard"        element={<Leaderboard />} />
-        <Route path="/slideshow"          element={<Slideshow />} />
+        <Route path="/profilo"            element={<Profile />} />
         <Route path="/admin"              element={<AdminLogin />} />
         <Route path="/admin/dashboard"    element={<AdminDashboard />} />
         <Route path="/admin/photos"        element={<ProtectedRoute><AdminPhotos /></ProtectedRoute>} />
