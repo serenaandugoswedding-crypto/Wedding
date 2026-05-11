@@ -34,6 +34,14 @@ const ACTIONS = [
     path:  '/missions',
     page:  'p. 48',
   },
+  {
+    num:   '05',
+    label: 'PROFILO',
+    title: 'Il mio numero',
+    sub:   'Le tue foto, il tuo punteggio, le tue missioni.',
+    path:  '/profilo',
+    page:  'p. 60',
+  },
 ];
 
 export default function Home() {

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FILTERS, applyFilterToCanvas, canvasToBase64, resizeCanvasToMaxDimension, renderThumbnail } from '../lib/filters';
 import { useGuestIdentity } from '../hooks/useGuestIdentity';
 import { useUploadQueue } from '../hooks/useUploadQueue';
@@ -10,6 +10,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'
 
 export default function Camera() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { uuid } = useGuestIdentity();
   const { pendingCount, uploadOrQueue, retryPendingUploads } = useUploadQueue();
 
@@ -33,13 +34,20 @@ export default function Camera() {
   const [queueMessage,       setQueueMessage]       = useState('');
   const [isRetryingQueue,    setIsRetryingQueue]    = useState(false);
 
-  // Load missions
+  // Load missions, then apply ?mission= preselect from URL
   useEffect(() => {
     fetch('/api/missions')
       .then(r => r.ok ? r.json() : null)
-      .then(d => d?.missions && setMissions(d.missions))
+      .then(d => {
+        if (!d?.missions) return;
+        setMissions(d.missions);
+        const preselect = searchParams.get('mission');
+        if (preselect && d.missions.some(m => m.id === preselect)) {
+          setMissionId(preselect);
+        }
+      })
       .catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Genera thumbnail strip progressivamente e anteprima iniziale quando l'immagine è pronta
   useEffect(() => {
