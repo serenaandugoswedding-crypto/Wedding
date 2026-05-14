@@ -17,10 +17,11 @@ function base64ToBlob(dataUrl) {
 }
 
 async function signedUpload({ photo_archive_base64, photo_web_base64, thumbnail_base64, guestUuid, filterId, dedication, missionId }) {
+  const signedOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
   const [webSigned, archiveSigned] = await Promise.all([
-    fetch(`/api/upload/signed-url?guest_uuid=${encodeURIComponent(guestUuid)}&fileType=web`)
+    fetch('/api/upload?action=signed-url', { ...signedOpts, body: JSON.stringify({ guest_uuid: guestUuid, fileType: 'web' }) })
       .then(r => { if (!r.ok) throw new Error('signed-url web failed'); return r.json(); }),
-    fetch(`/api/upload/signed-url?guest_uuid=${encodeURIComponent(guestUuid)}&fileType=archive`)
+    fetch('/api/upload?action=signed-url', { ...signedOpts, body: JSON.stringify({ guest_uuid: guestUuid, fileType: 'archive' }) })
       .then(r => { if (!r.ok) throw new Error('signed-url archive failed'); return r.json(); }),
   ]);
 
@@ -32,7 +33,7 @@ async function signedUpload({ photo_archive_base64, photo_web_base64, thumbnail_
   if (webResult.error)     throw new Error(`web upload: ${webResult.error.message}`);
   if (archiveResult.error) throw new Error(`archive upload: ${archiveResult.error.message}`);
 
-  const confirmResp = await fetch('/api/upload/confirm', {
+  const confirmResp = await fetch('/api/upload?action=confirm', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

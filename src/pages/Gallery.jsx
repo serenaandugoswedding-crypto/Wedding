@@ -95,7 +95,7 @@ export default function Gallery() {
       p.id === photoId ? { ...p, like_count: (p.like_count ?? 0) + 1 } : p,
     ));
     try {
-      await fetch(`/api/photos/${photoId}`, { method: 'POST' });
+      await fetch(`/api/photos?id=${photoId}`, { method: 'POST' });
     } catch { /* rollback silenzioso */ }
   }
 

@@ -38,11 +38,12 @@ export default function PhotoDetail() {
     } catch { return false; }
   });
   const [likeAnim, setLikeAnim] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
 
   useEffect(() => {
     if (photo) { setLikeCount(photo.like_count ?? 0); return; }
     setLoading(true);
-    fetch(`/api/photos/${photoId}`)
+    fetch(`/api/photos?id=${photoId}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => { setPhoto(d); setLikeCount(d.like_count ?? 0); })
       .catch(() => setError('Foto non trovata.'))
@@ -57,7 +58,34 @@ export default function PhotoDetail() {
     setTimeout(() => setLikeAnim(false), 200);
     const ids = (() => { try { return JSON.parse(localStorage.getItem('wedding_likes') ?? '[]'); } catch { return []; } })();
     localStorage.setItem('wedding_likes', JSON.stringify([...ids, photoId]));
-    try { await fetch(`/api/photos/${photoId}`, { method: 'POST' }); } catch { /* silent */ }
+    try { await fetch(`/api/photos?id=${photoId}`, { method: 'POST' }); } catch { /* silent */ }
+  }
+
+  async function handleShare() {
+    const url = `${window.location.origin}/gallery/${photoId}`;
+    setShareFeedback('');
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Serena & Ugo — The Wedding Issue',
+          text: 'Guarda questa foto del matrimonio.',
+          url,
+        });
+        setShareFeedback('Condiviso.');
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback('Link copiato.');
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback('Link copiato.');
+      } catch {
+        setShareFeedback('Non riesco a copiare il link.');
+      }
+    }
+    window.setTimeout(() => setShareFeedback(''), 2200);
   }
 
   function close() { navigate('/gallery'); }
@@ -96,6 +124,15 @@ export default function PhotoDetail() {
                 {likeCount} {isLiked ? 'MI PIACE' : 'MI PIACE'}
               </span>
             </button>
+
+            <div style={{ marginBottom: 14 }}>
+              <button onClick={handleShare} style={S.shareBtn}>
+                CONDIVIDI
+              </button>
+              {shareFeedback && (
+                <p style={S.shareFeedback}>{shareFeedback}</p>
+              )}
+            </div>
 
             {photo.dedication && (
               <p style={S.dedication}>&ldquo;{photo.dedication}&rdquo;</p>
@@ -184,6 +221,24 @@ const S = {
     marginBottom: 12,
     maxWidth: 320,
     margin: '0 auto 12px',
+  },
+  shareBtn: {
+    background: 'transparent',
+    border: '0.5px solid rgba(248,245,240,0.45)',
+    borderRadius: 2,
+    color: '#F8F5F0',
+    cursor: 'pointer',
+    fontFamily: 'Georgia, serif',
+    fontSize: 10,
+    letterSpacing: '0.22em',
+    padding: '8px 16px',
+    textTransform: 'uppercase',
+  },
+  shareFeedback: {
+    fontFamily: 'Georgia, serif',
+    fontSize: 11,
+    color: '#F8F5F0',
+    marginTop: 8,
   },
   filterLabel: {
     fontFamily: 'Georgia, serif',

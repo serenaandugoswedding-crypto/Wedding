@@ -3,11 +3,9 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/upload.js":               { "maxDuration": 30 },
-    "api/upload/confirm.js":       { "maxDuration": 20 },
-    "api/upload/signed-url.js":    { "maxDuration": 10 },
-    "api/admin/photos/actions.js": { "maxDuration": 60 },
-    "api/cron/purge-deleted.js":   { "maxDuration": 60 }
+    "api/upload.js":           { "maxDuration": 30 },
+    "api/admin/photos.js":     { "maxDuration": 60 },
+    "api/cron/purge-deleted.js": { "maxDuration": 60 }
   },
   "crons": [
     {

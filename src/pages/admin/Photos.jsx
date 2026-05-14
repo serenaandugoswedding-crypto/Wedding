@@ -112,7 +112,7 @@ export default function AdminPhotos() {
     setBusy(true);
     setActionMsg('');
     try {
-      const res = await apiFetch(`/api/admin/photos/actions?action=${action}`, {
+      const res = await apiFetch(`/api/admin/photos?action=${action}`, {
         method: 'POST',
         body:   JSON.stringify({ ids }),
       });
@@ -132,7 +132,7 @@ export default function AdminPhotos() {
     setBusy(true);
     setActionMsg('Preparando ZIP…');
     try {
-      const res = await fetch('/api/admin/photos/actions?action=zip', {
+      const res = await fetch('/api/admin/photos?action=zip', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAdminToken()}` },
         body:    JSON.stringify({ ids }),
@@ -157,7 +157,7 @@ export default function AdminPhotos() {
   async function runModalAction(action, photoId) {
     setBusy(true);
     try {
-      const res = await apiFetch(`/api/admin/photos/actions?action=${action}`, {
+      const res = await apiFetch(`/api/admin/photos?action=${action}`, {
         method: 'POST',
         body:   JSON.stringify({ ids: [photoId] }),
       });
