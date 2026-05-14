@@ -3,8 +3,56 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FILTERS, applyFilterToCanvas, canvasToBase64, resizeCanvasToMaxDimension, renderThumbnail } from '../lib/filters';
 import { useGuestIdentity } from '../hooks/useGuestIdentity';
 import { useUploadQueue } from '../hooks/useUploadQueue';
+import { supabase } from '../lib/supabase-client';
 
 const PHASE = { UPLOADING: 'uploading', DONE: 'done' };
+
+function base64ToBlob(dataUrl) {
+  const [meta, b64] = dataUrl.split(',');
+  const mime = meta.match(/:(.*?);/)[1];
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+async function signedUpload({ photo_archive_base64, photo_web_base64, thumbnail_base64, guestUuid, filterId, dedication, missionId }) {
+  const [webSigned, archiveSigned] = await Promise.all([
+    fetch(`/api/upload/signed-url?guest_uuid=${encodeURIComponent(guestUuid)}&fileType=web`)
+      .then(r => { if (!r.ok) throw new Error('signed-url web failed'); return r.json(); }),
+    fetch(`/api/upload/signed-url?guest_uuid=${encodeURIComponent(guestUuid)}&fileType=archive`)
+      .then(r => { if (!r.ok) throw new Error('signed-url archive failed'); return r.json(); }),
+  ]);
+
+  const [webResult, archiveResult] = await Promise.all([
+    supabase.storage.from(webSigned.bucket).uploadToSignedUrl(webSigned.path, webSigned.token, base64ToBlob(photo_web_base64), { contentType: 'image/jpeg' }),
+    supabase.storage.from(archiveSigned.bucket).uploadToSignedUrl(archiveSigned.path, archiveSigned.token, base64ToBlob(photo_archive_base64), { contentType: 'image/jpeg' }),
+  ]);
+
+  if (webResult.error)     throw new Error(`web upload: ${webResult.error.message}`);
+  if (archiveResult.error) throw new Error(`archive upload: ${archiveResult.error.message}`);
+
+  const confirmResp = await fetch('/api/upload/confirm', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      guest_uuid:      guestUuid,
+      web_path:        webSigned.path,
+      archive_path:    archiveSigned.path,
+      thumbnail_base64,
+      filter_used:     filterId,
+      dedication,
+      mission_id:      missionId,
+    }),
+  });
+
+  if (!confirmResp.ok) {
+    const body = await confirmResp.json().catch(() => ({}));
+    throw new Error(`confirm (${confirmResp.status}): ${body.error || 'unknown'}`);
+  }
+
+  return { ok: true };
+}
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'];
 
@@ -147,17 +195,17 @@ export default function Camera() {
     setQueuedPublish(false);
     setQueueMessage('');
 
-    let photo_archive_base64;
-    let photo_web_base64;
+    // Render: archive full-res (no cap), web 1600px, thumbnail 200px per JSON confirm
+    let photo_archive_base64, photo_web_base64, thumbnail_base64;
     try {
-      // IMPORTANTE: nessun maxDim — il filtro lavora sull'originale full-res.
-      // Non aggiungere maxDim qui: causerebbe il bug 486KB dove archive veniva ridotto.
       const filteredCanvas = applyFilterToCanvas(uploadedImage, selectedFilter);
       photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
 
-      // Versione web ridotta a 1600px per la gallery
-      const webCanvas        = resizeCanvasToMaxDimension(filteredCanvas, 1600);
+      const webCanvas  = resizeCanvasToMaxDimension(filteredCanvas, 1600);
       photo_web_base64 = canvasToBase64(webCanvas, 0.82);
+
+      const thumbCanvas  = resizeCanvasToMaxDimension(filteredCanvas, 200);
+      thumbnail_base64   = canvasToBase64(thumbCanvas, 0.82);
     } catch (err) {
       console.error('[Camera] render error:', err);
       setIsPublishingRender(false);
@@ -165,7 +213,28 @@ export default function Camera() {
       setPhase(null);
       return;
     }
+    setIsPublishingRender(false);
 
+    // Online: upload diretto a Supabase via signed URL (bypassa limite 4.5MB Vercel)
+    if (navigator.onLine) {
+      try {
+        await signedUpload({
+          photo_archive_base64,
+          photo_web_base64,
+          thumbnail_base64,
+          guestUuid:  uuid,
+          filterId:   selectedFilter.id,
+          dedication: dedication.trim() || null,
+          missionId:  missionId || null,
+        });
+        setPhase(PHASE.DONE);
+        return;
+      } catch (err) {
+        console.error('[Camera] signed upload failed, fallback to queue:', err);
+      }
+    }
+
+    // Fallback: legacy queue (offline o signed upload fallito)
     let result;
     try {
       result = await uploadOrQueue({
@@ -178,12 +247,11 @@ export default function Camera() {
       });
     } catch (err) {
       console.error('[Camera] upload error:', err);
-      setIsPublishingRender(false);
       setError('Upload non riuscito. Controlla la connessione e riprova.');
       setPhase(null);
       return;
     }
-    setIsPublishingRender(false);
+
     if (result.ok || result.queued) {
       setQueuedPublish(Boolean(result.queued));
       setQueueMessage(result.queued ? 'Foto salvata. Verrà pubblicata quando torna connessione.' : '');
