@@ -1,3 +1,5 @@
+// DEPRECATED: usato solo come fallback per l'offline IndexedDB queue (pre signed-URL flow).
+// Nuovi upload usano /api/upload/signed-url + /api/upload/confirm.
 import sharp from 'sharp';
 import { uploadToDrive, uploadToArchive } from './_lib/drive-client.js';
 import { getSupabaseAdmin } from './_lib/supabase-admin.js';
