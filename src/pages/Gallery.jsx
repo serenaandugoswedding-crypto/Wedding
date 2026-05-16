@@ -226,7 +226,7 @@ function PolaroidCard({ photo, isLiked, isTop, onClick, onLike }) {
   const [hovered,   setHovered]   = useState(false);
   const [animating, setAnimating] = useState(false);
   const rot = Math.max(-6, Math.min(6, photo.rotation_deg ?? 0));
-  const src = imgErr ? null : (photo.thumbnail_url || photo.web_url);
+  const src = imgErr ? null : (photo.web_url || photo.thumbnail_url);
 
   function handleLikeClick(e) {
     e.stopPropagation();
