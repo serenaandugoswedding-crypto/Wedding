@@ -199,14 +199,46 @@ export default function Camera() {
     // Render: archive full-res (no cap), web 1600px, thumbnail 200px per JSON confirm
     let photo_archive_base64, photo_web_base64, thumbnail_base64;
     try {
-      const filteredCanvas = applyFilterToCanvas(uploadedImage, selectedFilter);
+      // Pre-resize via createImageBitmap (iOS-safe, evita canvas memory limit)
+      // Cap archive a 2400px longest side: copre album fisico fino a 25cm a 240 DPI
+      // mantenendo upload mobile veloce su 4G
+      const ARCHIVE_MAX = 2400;
+      const srcW = uploadedImage.naturalWidth;
+      const srcH = uploadedImage.naturalHeight;
+      const longestSide = Math.max(srcW, srcH);
+      const scale = longestSide > ARCHIVE_MAX ? ARCHIVE_MAX / longestSide : 1;
+      const targetW = Math.round(srcW * scale);
+      const targetH = Math.round(srcH * scale);
+
+      const bitmap = await createImageBitmap(uploadedImage, {
+        resizeWidth: targetW,
+        resizeHeight: targetH,
+        resizeQuality: 'high'
+      });
+
+      const resizedCanvas = document.createElement('canvas');
+      resizedCanvas.width = bitmap.width;
+      resizedCanvas.height = bitmap.height;
+      resizedCanvas.getContext('2d').drawImage(bitmap, 0, 0);
+      bitmap.close();
+
+      // Image element dal canvas resized, per compatibilita con applyFilterToCanvas
+      const resizedImg = new Image();
+      resizedImg.src = resizedCanvas.toDataURL('image/jpeg', 0.95);
+      await new Promise((resolve, reject) => {
+        resizedImg.onload = resolve;
+        resizedImg.onerror = reject;
+      });
+
+      // Pipeline filter su immagine downscalata: veloce + iOS-safe
+      const filteredCanvas = applyFilterToCanvas(resizedImg, selectedFilter);
       photo_archive_base64 = canvasToBase64(filteredCanvas, 0.92);
 
-      const webCanvas  = resizeCanvasToMaxDimension(filteredCanvas, 1600);
+      const webCanvas = resizeCanvasToMaxDimension(filteredCanvas, 1600);
       photo_web_base64 = canvasToBase64(webCanvas, 0.82);
 
-      const thumbCanvas  = resizeCanvasToMaxDimension(filteredCanvas, 200);
-      thumbnail_base64   = canvasToBase64(thumbCanvas, 0.82);
+      const thumbCanvas = resizeCanvasToMaxDimension(filteredCanvas, 200);
+      thumbnail_base64 = canvasToBase64(thumbCanvas, 0.82);
     } catch (err) {
       console.error('[Camera] render error:', err);
       setIsPublishingRender(false);
